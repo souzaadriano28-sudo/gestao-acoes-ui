@@ -2,11 +2,15 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  outputDir: 'test-results',
   timeout: 30_000,
   fullyParallel: false,
+  reporter: [
+    ['list'],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }]
+  ],
   use: {
     baseURL: 'http://localhost:4200',
-    channel: 'chrome',
     headless: true
   },
   webServer: [
