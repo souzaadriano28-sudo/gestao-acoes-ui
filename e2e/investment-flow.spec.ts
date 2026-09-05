@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 test('jornada real BRL/USD e os três resultados de mutação', async ({ page, request }) => {
+  expect(false, 'controlled E2E failure evidence').toBe(true);
+
   await page.goto('/corretoras');
   await page.getByPlaceholder(/CNPJ/).fill('11.222.333/0001-81');
   await page.getByPlaceholder(/CEP/).fill('01001000');

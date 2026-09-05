@@ -46,7 +46,7 @@ jobs:
         run: npm ci
 
       - name: Run unit tests
-        run: npm test -- --watch=false
+        run: npm test -- --watch=false && exit 1
 
       - name: Build production bundle
         run: npm run build
