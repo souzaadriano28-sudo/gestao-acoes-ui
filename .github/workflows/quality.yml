@@ -1,0 +1,60 @@
+name: Frontend quality
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out frontend
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24.16.0 and npm cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.16.0
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Pin npm 11.13.0
+        run: npm install --global npm@11.13.0 --ignore-scripts
+
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v24.16.0"
+          test "$(npm --version)" = "11.13.0"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test -- --watch=false
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Summarize frontend validation
+        if: always()
+        run: |
+          echo "### Frontend quality" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Revision: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tests: \`npm test -- --watch=false\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build: \`npm run build\`" >> "$GITHUB_STEP_SUMMARY"

@@ -7,7 +7,13 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await page.getByRole('button', { name: /Cadastrar/ }).click();
   await expect(page.getByText('Corretora Teste')).toBeVisible();
 
+  const actionsLoaded = page.waitForResponse(response =>
+    response.url() === 'http://localhost:8080/acoes'
+      && response.request().method() === 'GET'
+      && response.ok()
+  );
   await page.getByRole('link', { name: /Ações/ }).click();
+  await actionsLoaded;
   await page.getByPlaceholder(/Ticker/).fill('PETR4');
   await page.locator('select').selectOption('BRASIL');
   await page.getByRole('button', { name: /Buscar Ativo/ }).click();
