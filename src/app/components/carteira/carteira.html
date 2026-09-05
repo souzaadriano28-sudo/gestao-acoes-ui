@@ -3,7 +3,8 @@
   <div style="background: linear-gradient(135deg, #0056b3 0%, #003d82 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
     <h3 style="margin: 0; font-weight: normal; opacity: 0.9;">Patrimônio Total Alocado</h3>
     <h1 style="margin: 10px 0 0 0; font-size: 3em;">
-      R$ {{ saldoTotal | number:'1.2-2' }}
+      <span *ngIf="saldoTotal !== null; else saldoIndisponivel">R$ {{ saldoTotal | number:'1.2-2' }}</span>
+      <ng-template #saldoIndisponivel>Indisponível</ng-template>
     </h1>
   </div>
 
@@ -17,16 +18,21 @@
     <div *ngIf="mensagemSucesso" style="padding: 10px; background-color: #d4edda; color: #155724; border-radius: 4px; font-weight: bold; margin-bottom: 15px;">
       ✅ {{ mensagemSucesso }}
     </div>
+    <div *ngIf="mensagemAviso" style="padding: 10px; background-color: #fff3cd; color: #664d03; border-radius: 4px; font-weight: bold; margin-bottom: 15px;">
+      ⚠️ {{ mensagemAviso }} <button type="button" (click)="carregarDashboard()">Tentar novamente</button>
+    </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
       <button
-        (click)="tipoOperacao = 'COMPRA'"
+        (click)="selecionarTipo('COMPRA')"
+        [disabled]="operacaoPendente"
         [ngStyle]="{'background-color': tipoOperacao === 'COMPRA' ? '#28a745' : '#e9ecef', 'color': tipoOperacao === 'COMPRA' ? 'white' : '#495057'}"
         style="flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;">
         COMPRAR
       </button>
       <button
-        (click)="tipoOperacao = 'VENDA'"
+        (click)="selecionarTipo('VENDA')"
+        [disabled]="operacaoPendente"
         [ngStyle]="{'background-color': tipoOperacao === 'VENDA' ? '#dc3545' : '#e9ecef', 'color': tipoOperacao === 'VENDA' ? 'white' : '#495057'}"
         style="flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s;">
         VENDER
@@ -36,7 +42,7 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
       <div>
         <label style="display: block; font-size: 0.9em; font-weight: bold; color: #555; margin-bottom: 5px;">Ativo:</label>
-        <select [(ngModel)]="acaoSelecionada" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <select [(ngModel)]="acaoSelecionada" [disabled]="operacaoPendente" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
           <option value="" disabled>Selecione um ativo...</option>
           <option *ngFor="let acao of acoes" [ngValue]="acao">{{ acao.ticker }} ({{ acao.mercado }})</option>
         </select>
@@ -44,7 +50,7 @@
 
       <div>
         <label style="display: block; font-size: 0.9em; font-weight: bold; color: #555; margin-bottom: 5px;">Corretora:</label>
-        <select [(ngModel)]="corretoraIdSelecionada" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <select [(ngModel)]="corretoraIdSelecionada" [disabled]="operacaoPendente" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
           <option value="" disabled>Selecione a corretora...</option>
           <option *ngFor="let corretora of corretoras" [value]="corretora.id">{{ corretora.razaoSocial }}</option>
         </select>
@@ -52,19 +58,26 @@
 
       <div style="grid-column: span 2;">
         <label style="display: block; font-size: 0.9em; font-weight: bold; color: #555; margin-bottom: 5px;">Quantidade (Cotas):</label>
-        <input type="number" [(ngModel)]="quantidade" placeholder="Ex: 100" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <input type="number" step="1" min="1" [(ngModel)]="quantidade" [disabled]="operacaoPendente" placeholder="Ex: 100" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <small *ngIf="errosCampos['qtd']" style="color: #721c24;">{{ errosCampos['qtd'] }}</small>
       </div>
+    </div>
+    <div *ngFor="let item of errosCampos | keyvalue">
+      <small *ngIf="item.key !== 'qtd'" style="color: #721c24;">{{ item.key }}: {{ item.value }}</small>
     </div>
 
     <button
       (click)="executarTransacao()"
+      [disabled]="operacaoPendente"
       [ngStyle]="{'background-color': tipoOperacao === 'COMPRA' ? '#28a745' : '#dc3545'}"
       style="width: 100%; padding: 15px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1.1em; transition: 0.2s;">
-      {{ tipoOperacao === 'COMPRA' ? 'Confirmar Compra' : 'Confirmar Venda' }}
+      {{ operacaoPendente ? 'Processando...' : (tipoOperacao === 'COMPRA' ? 'Confirmar Compra' : 'Confirmar Venda') }}
     </button>
   </div>
 
   <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Meus Ativos em Custódia</h2>
+  <p *ngIf="carregando">Atualizando dados...</p>
+  <p *ngIf="dadosDesatualizados" style="color: #856404;">Dados exibidos podem estar desatualizados.</p>
 
   <div style="display: grid; gap: 15px;">
     <div *ngFor="let posicao of posicoes" style="padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center;">
@@ -86,7 +99,7 @@
 
     </div>
 
-    <p *ngIf="posicoes.length === 0" style="color: #777; font-style: italic;">
+    <p *ngIf="posicoes.length === 0 && !carregando && !cargaFalhou" style="color: #777; font-style: italic;">
       Você ainda não possui ativos na sua carteira.
     </p>
   </div>

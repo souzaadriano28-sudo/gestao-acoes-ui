@@ -2,6 +2,8 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core'; // <-- Imp
 import { CorretoraService, Corretora } from '../../services/corretora';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { finalize } from 'rxjs';
+import { parseApiError } from '../../services/api-error';
 
 @Component({
   selector: 'app-corretora',
@@ -16,6 +18,11 @@ export class CorretoraComponent implements OnInit {
   cnpjCorretora: string = '';
   cepCorretora: string = '';
   mensagemErro: string = '';
+  errosCampos: Record<string, string> = {};
+  carregando = false;
+  cargaFalhou = false;
+  dadosDesatualizados = false;
+  salvando = false;
 
   constructor(
     private corretoraService: CorretoraService,
@@ -27,18 +34,27 @@ export class CorretoraComponent implements OnInit {
   }
 
   carregarCorretoras(): void {
+    this.carregando = true;
+    this.cargaFalhou = false;
     this.corretoraService.listar().subscribe({
       next: (dados: Corretora[]) => {
         this.corretoras = dados;
+        this.dadosDesatualizados = false;
+        this.carregando = false;
         this.cdr.detectChanges(); // <-- Força a tela a atualizar e mostrar a lista na mesma hora
       },
       error: (erro: any) => {
-        console.error('Erro ao listar corretoras:', erro);
+        this.carregando = false;
+        this.cargaFalhou = true;
+        this.dadosDesatualizados = this.corretoras.length > 0;
+        this.mensagemErro = parseApiError(erro).message;
+        this.cdr.detectChanges();
       }
     });
   }
 
   adicionarCorretora(): void {
+    if (this.salvando) return;
     if (!this.cnpjCorretora || !this.cepCorretora) {
       this.mensagemErro = 'Preencha o CNPJ e o CEP.';
       this.cdr.detectChanges();
@@ -46,25 +62,21 @@ export class CorretoraComponent implements OnInit {
     }
 
     this.mensagemErro = '';
+    this.errosCampos = {};
 
-    this.corretoraService.salvar(this.cnpjCorretora, this.cepCorretora).subscribe({
+    this.salvando = true;
+    this.corretoraService.salvar(this.cnpjCorretora, this.cepCorretora).pipe(
+      finalize(() => { this.salvando = false; this.cdr.detectChanges(); })
+    ).subscribe({
       next: () => {
         this.cnpjCorretora = '';
         this.cepCorretora = '';
         this.carregarCorretoras(); // O carregarCorretoras já tem o detectChanges() dentro dele
       },
       error: (erro: any) => {
-        console.error('Erro detalhado:', erro);
-
-        // Pega a mensagem de erro exata que o Spring Boot mandou
-        if (erro.error && typeof erro.error === 'string') {
-          this.mensagemErro = erro.error;
-        } else if (erro.error && erro.error.message) {
-          this.mensagemErro = erro.error.message;
-        } else {
-          this.mensagemErro = 'Erro ao processar a requisição. CNPJ duplicado ou inválido.';
-        }
-
+        const parsed = parseApiError(erro);
+        this.mensagemErro = parsed.message;
+        this.errosCampos = parsed.fields;
         this.cdr.detectChanges(); // <-- Força a tela a exibir a caixa vermelha na mesma hora
       }
     });
