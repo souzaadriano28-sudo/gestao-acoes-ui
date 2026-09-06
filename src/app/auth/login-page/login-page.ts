@@ -12,7 +12,7 @@ export class LoginPageComponent implements OnInit {
   @ViewChild('errorBox') errorBox?:ElementRef<HTMLElement>;
   readonly form=new FormGroup({username:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(64)]}),password:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(128)]})});
   readonly passwordVisible=signal(false); readonly pending=signal(false); readonly preparing=signal(true); readonly message=signal(''); readonly success=signal(false);
-  private returnUrl='/carteira';
+  private returnUrl='/dashboard';
   constructor(private readonly auth:AuthService,private readonly store:AuthStore,private readonly route:ActivatedRoute,private readonly router:Router){}
   ngOnInit():void{
     this.returnUrl=safeReturnUrl(this.route.snapshot.queryParamMap.get('returnUrl'));
