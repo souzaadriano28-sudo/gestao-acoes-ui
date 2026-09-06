@@ -21,7 +21,7 @@ export interface Posicao {
   providedIn: 'root'
 })
 export class CarteiraService {
-  private apiUrl = 'http://localhost:8080/carteira';
+  private readonly apiUrl = '/api/carteira';
 
   constructor(private http: HttpClient) { }
 

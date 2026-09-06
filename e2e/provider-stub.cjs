@@ -40,5 +40,5 @@ const server = http.createServer((request, response) => {
   return json(response, 404, { error: 'provider fixture not found' });
 });
 
-server.listen(9090, '127.0.0.1');
+server.listen(9090, process.env.PROVIDER_STUB_HOST || '127.0.0.1');
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));

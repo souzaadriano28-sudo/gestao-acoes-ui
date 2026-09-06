@@ -16,7 +16,7 @@ export interface Acao {
   providedIn: 'root'
 })
 export class AcaoService {
-  private apiUrl = 'http://localhost:8080/acoes';
+  private readonly apiUrl = '/api/acoes';
 
   constructor(private http: HttpClient) { }
 

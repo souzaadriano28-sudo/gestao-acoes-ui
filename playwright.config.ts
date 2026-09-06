@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const containerized = process.env['E2E_CONTAINERIZED'] === 'true';
+
 export default defineConfig({
   testDir: './e2e',
   outputDir: 'test-results',
@@ -10,34 +12,35 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }]
   ],
   use: {
-    baseURL: 'http://localhost:4200',
+    baseURL: process.env['E2E_BASE_URL'] ?? 'http://127.0.0.1:4200',
     headless: true
   },
   webServer: [
     {
       command: 'node e2e/provider-stub.cjs',
-      url: 'http://localhost:9090/health',
+      url: 'http://127.0.0.1:9090/health',
       timeout: 30_000,
-      reuseExistingServer: false
+      reuseExistingServer: containerized,
+      env: containerized ? { PROVIDER_STUB_HOST: '0.0.0.0' } : undefined
     },
-    {
+    ...(!containerized ? [{
       command: '..\\gestao-acoes-spring\\mvnw.cmd -q -f ..\\gestao-acoes-spring\\pom.xml spring-boot:run',
       url: 'http://localhost:8080/acoes',
       timeout: 120_000,
       reuseExistingServer: false,
       env: {
         SPRING_PROFILES_ACTIVE: 'test',
-        INTEGRATIONS_BRAPI_URL: 'http://localhost:9090/brapi/api',
-        INTEGRATIONS_TWELVEDATA_URL: 'http://localhost:9090/twelvedata',
-        INTEGRATIONS_BRASILAPI_URL: 'http://localhost:9090/brasilapi/cnpj/v1',
-        INTEGRATIONS_VIACEP_URL: 'http://localhost:9090/viacep'
+        APP_CORS_ALLOWED_ORIGIN: 'http://127.0.0.1:4200',
+        INTEGRATIONS_BRAPI_URL: 'http://127.0.0.1:9090/brapi/api',
+        INTEGRATIONS_TWELVEDATA_URL: 'http://127.0.0.1:9090/twelvedata',
+        INTEGRATIONS_BRASILAPI_URL: 'http://127.0.0.1:9090/brasilapi/cnpj/v1',
+        INTEGRATIONS_VIACEP_URL: 'http://127.0.0.1:9090/viacep'
       }
-    },
-    {
-      command: 'npm run start -- --host localhost --port 4200',
-      url: 'http://localhost:4200',
+    }, {
+      command: 'npm run start -- --host 127.0.0.1 --port 4200',
+      url: 'http://127.0.0.1:4200',
       timeout: 120_000,
       reuseExistingServer: false
-    }
+    }] : [])
   ]
 });
