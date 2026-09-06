@@ -1,0 +1,4 @@
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+<div class="shell"><header><a class="brand" routerLink="/carteira"><span>AC</span><strong>Atlas Carteira</strong></a><div class="account"><span>{{ store.state().username }}</span><button type="button" (click)="logout()" [disabled]="loggingOut">{{ loggingOut ? 'Saindo…' : 'Sair' }}</button></div></header>
+<nav aria-label="Navegação principal"><a routerLink="/carteira" routerLinkActive="active">Minha Carteira</a><a routerLink="/corretoras" routerLinkActive="active">Corretoras</a><a routerLink="/acoes" routerLinkActive="active">Ações</a></nav>
+<main id="conteudo"><router-outlet /></main><footer>Sistema acadêmico. Não executa ordens e não constitui recomendação de investimento.</footer></div>

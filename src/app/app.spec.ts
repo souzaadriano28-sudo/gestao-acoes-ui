@@ -16,11 +16,11 @@ describe('AppComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('renderiza o título da aplicação', async () => {
+  it('mantém a raiz sem conteúdo de autenticação persistente', async () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).querySelector('h1')?.textContent)
-      .toContain('Gestão de Carteira de Ações');
+    expect((fixture.nativeElement as HTMLElement).querySelector('router-outlet')).toBeTruthy();
+    expect(localStorage.length).toBe(0);
   });
 });

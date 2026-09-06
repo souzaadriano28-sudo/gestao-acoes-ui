@@ -1,10 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink } from '@angular/router'; // <-- 1. Adicione o RouterLink aqui
+import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink], // <-- 2. Coloque ele aqui dentro do array!
+  imports: [RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
