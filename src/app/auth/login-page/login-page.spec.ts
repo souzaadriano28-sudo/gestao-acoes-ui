@@ -1,0 +1,12 @@
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { LoginPageComponent } from './login-page';
+
+describe('LoginPageComponent',()=>{
+  let http:HttpTestingController;
+  beforeEach(async()=>{await TestBed.configureTestingModule({imports:[LoginPageComponent],providers:[provideRouter([]),provideHttpClient(),provideHttpClientTesting()]}).compileComponents();http=TestBed.inject(HttpTestingController);});afterEach(()=>http.verify());
+  it('é acessível, não oferece fluxos fora do escopo e alterna a senha preservando valor e foco',()=>{const fixture=TestBed.createComponent(LoginPageComponent);fixture.detectChanges();http.expectOne('/api/auth/csrf').flush({token:'x',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});fixture.detectChanges();const root=fixture.nativeElement as HTMLElement;expect(root.querySelector('label[for=usuario]')).toBeTruthy();expect(root.querySelector('label[for=senha]')).toBeTruthy();expect(root.textContent).not.toMatch(/cadastre-se|esqueci minha senha|google|facebook/i);const password=root.querySelector('#senha') as HTMLInputElement;password.focus();password.value='preserved';password.dispatchEvent(new Event('input'));const button=root.querySelector('.reveal') as HTMLButtonElement;button.click();fixture.detectChanges();expect((root.querySelector('#senha') as HTMLInputElement).type).toBe('text');expect((root.querySelector('#senha') as HTMLInputElement).value).toBe('preserved');expect(button.getAttribute('aria-label')).toBe('Ocultar senha');});
+  it('mostra validação local e bloqueia envio duplicado',()=>{const fixture=TestBed.createComponent(LoginPageComponent);fixture.detectChanges();http.expectOne('/api/auth/csrf').flush({token:'x',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});const component=fixture.componentInstance;component.submit();fixture.detectChanges();expect(component.message()).toContain('Informe usuário');component.form.setValue({username:'atlas',password:'valid-test-password'});component.submit();component.submit();const login=http.expectOne('/api/auth/login');login.flush({code:'AUTHENTICATION_FAILED',message:'generic'},{status:401,statusText:'Unauthorized'});expect(component.form.controls.password.value).toBe('');expect(component.message()).not.toContain('atlas');});
+});

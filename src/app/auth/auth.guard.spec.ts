@@ -1,0 +1,3 @@
+import { routes } from '../app.routes';
+
+describe('rotas protegidas',()=>{it('mantém apenas login público e protege todos os filhos de negócio',()=>{const login=routes.find(route=>route.path==='login');const privateRoot=routes.find(route=>route.path==='' && route.children);expect(login?.canActivate).toBeUndefined();expect(privateRoot?.canActivate?.length).toBe(1);expect(privateRoot?.canActivateChild?.length).toBe(1);expect(privateRoot?.children?.map(route=>route.path)).toEqual(['','carteira','corretoras','acoes']);expect(routes.some(route=>String(route.path).includes('signup'))).toBe(false);});});
