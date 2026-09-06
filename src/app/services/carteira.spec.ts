@@ -17,13 +17,13 @@ describe('CarteiraService', () => {
 
   it('envia compra e venda com método, rota e payload atuais e aceita resposta sem corpo', () => {
     service.comprar(payload).subscribe(value => expect(value).toBeNull());
-    const buy = http.expectOne('http://localhost:8080/carteira/comprar');
+    const buy = http.expectOne('/api/carteira/comprar');
     expect(buy.request.method).toBe('POST');
     expect(buy.request.body).toEqual(payload);
     buy.flush(null);
 
     service.vender(payload).subscribe(value => expect(value).toBeNull());
-    const sell = http.expectOne('http://localhost:8080/carteira/vender');
+    const sell = http.expectOne('/api/carteira/vender');
     expect(sell.request.method).toBe('POST');
     expect(sell.request.body).toEqual(payload);
     sell.flush(null);
@@ -31,9 +31,9 @@ describe('CarteiraService', () => {
 
   it('consulta patrimônio e posições', () => {
     service.getSaldoTotal().subscribe(value => expect(value).toBe(1180));
-    http.expectOne('http://localhost:8080/carteira/saldo-total').flush(1180.00);
+    http.expectOne('/api/carteira/saldo-total').flush(1180.00);
     service.listarPosicoes().subscribe(value => expect(value[0].quantidade).toBe(6));
-    http.expectOne('http://localhost:8080/carteira/posicoes')
+    http.expectOne('/api/carteira/posicoes')
       .flush([{ ticker: 'PETR4', corretora: 'Teste', quantidade: 6, precoMedio: 20, moeda: 'BRL' }]);
   });
 });

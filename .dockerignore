@@ -1,0 +1,17 @@
+.git
+.github
+.angular
+.vscode
+dist
+node_modules
+coverage
+test-results
+playwright-report
+e2e
+docs
+*.log
+.env
+.env.*
+!.env.example
+Dockerfile*
+README.md

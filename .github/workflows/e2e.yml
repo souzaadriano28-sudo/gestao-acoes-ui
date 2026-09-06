@@ -61,24 +61,9 @@ jobs:
       - name: Verify isolated E2E configuration
         shell: pwsh
         run: |
-          $playwright = Get-Content -Raw -LiteralPath 'gestao-acoes-ui/playwright.config.ts'
-          $testProfile = Get-Content -Raw -LiteralPath 'gestao-acoes-spring/src/main/resources/application-test.properties'
-          $requiredPlaywrightSettings = @(
-            "SPRING_PROFILES_ACTIVE: 'test'",
-            "INTEGRATIONS_BRAPI_URL: 'http://localhost:9090/brapi/api'",
-            "INTEGRATIONS_TWELVEDATA_URL: 'http://localhost:9090/twelvedata'",
-            "INTEGRATIONS_BRASILAPI_URL: 'http://localhost:9090/brasilapi/cnpj/v1'",
-            "INTEGRATIONS_VIACEP_URL: 'http://localhost:9090/viacep'",
-            'reuseExistingServer: false'
-          )
-          foreach ($setting in $requiredPlaywrightSettings) {
-            if (-not $playwright.Contains($setting)) {
-              throw "Unsafe E2E configuration: missing $setting"
-            }
-          }
-          if (-not $testProfile.Contains('jdbc:h2:mem:gestaoacoes')) {
-            throw 'Unsafe E2E configuration: Spring test profile is not using the expected in-memory H2 database.'
-          }
+          & 'gestao-acoes-ui/.github/scripts/validate-isolated-e2e.ps1' `
+            -PlaywrightConfigPath 'gestao-acoes-ui/playwright.config.ts' `
+            -TestProfilePath 'gestao-acoes-spring/src/main/resources/application-test.properties'
 
       - name: Set up Java 17 and Maven cache
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0

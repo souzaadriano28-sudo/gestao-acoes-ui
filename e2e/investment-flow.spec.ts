@@ -8,7 +8,7 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await expect(page.getByText('Corretora Teste')).toBeVisible();
 
   const actionsLoaded = page.waitForResponse(response =>
-    response.url() === 'http://localhost:8080/acoes'
+    new URL(response.url()).pathname === '/api/acoes'
       && response.request().method() === 'GET'
       && response.ok()
   );
@@ -31,9 +31,11 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await brokerSelect.selectOption({ label: 'Corretora Teste' });
   await quantity.fill('10');
   await page.getByRole('button', { name: 'Confirmar Compra' }).click();
+  await expect(page.getByText('10 cotas', { exact: true })).toBeVisible();
   await assetSelect.selectOption({ label: 'AAPL (AMERICANO)' });
   await quantity.fill('2');
   await page.getByRole('button', { name: 'Confirmar Compra' }).click();
+  await expect(page.getByText('2 cotas', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'VENDER' }).click();
   await assetSelect.selectOption({ label: 'PETR4 (BRASIL)' });
   await quantity.fill('4');
@@ -42,7 +44,7 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await expect(page.getByText(/2 cotas/)).toBeVisible();
   await expect(page.getByText(/1[.,]180[.,]00/)).toBeVisible();
 
-  const exactTotal = await request.get('http://localhost:8080/carteira/saldo-total');
+  const exactTotal = await request.get('/api/carteira/saldo-total');
   expect(exactTotal.ok()).toBe(true);
   expect(await exactTotal.text()).toBe('1180.00');
 
@@ -50,13 +52,13 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await page.getByRole('button', { name: 'Confirmar Venda' }).click();
   await expect(page.getByText(/insuficiente/)).toBeVisible();
 
-  await request.post('http://localhost:9090/control/fail-brapi-after-one-success');
+  await request.post('http://127.0.0.1:9090/control/fail-brapi-after-one-success');
   await page.getByRole('button', { name: 'COMPRAR' }).click();
   await quantity.fill('1');
   await page.getByRole('button', { name: 'Confirmar Compra' }).click();
   await expect(page.getByText(/confirmada, mas os dados/)).toBeVisible();
 
-  await page.route('http://localhost:8080/carteira/comprar', async route => {
+  await page.route('**/api/carteira/comprar', async route => {
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     await route.abort('connectionfailed');
@@ -65,7 +67,7 @@ test('jornada real BRL/USD e os três resultados de mutação', async ({ page, r
   await page.getByRole('button', { name: 'Confirmar Compra' }).click();
   await expect(page.getByText(/confirmar o resultado/)).toBeVisible();
 
-  const positions = await request.get('http://localhost:8080/carteira/posicoes');
+  const positions = await request.get('/api/carteira/posicoes');
   expect(positions.ok()).toBe(true);
   const persisted = await positions.json();
   expect(persisted.find((item: any) => item.ticker === 'PETR4').quantidade).toBe(8);

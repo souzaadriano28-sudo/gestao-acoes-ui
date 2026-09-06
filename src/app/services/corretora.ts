@@ -19,7 +19,7 @@ export interface Corretora {
 })
 export class CorretoraService {
 
-  private apiUrl = 'http://localhost:8080/corretoras';
+  private readonly apiUrl = '/api/corretoras';
 
   constructor(private http: HttpClient) { }
 
