@@ -33,7 +33,7 @@ export default defineConfig({
       env: containerized ? { PROVIDER_STUB_HOST: '0.0.0.0' } : undefined
     },
     ...(!containerized ? [{
-      command: 'mvn.cmd -q -f ..\\gestao-acoes-spring\\pom.xml spring-boot:run',
+      command: 'mvn.cmd -q -f ..\\gestao-acoes-spring\\pom.xml -Dspring-boot.run.main-class=com.trabalho.gestao_acoes.e2e.E2eTestLauncher spring-boot:test-run',
       url: 'http://localhost:8080/acoes',
       timeout: 120_000,
       reuseExistingServer: false,

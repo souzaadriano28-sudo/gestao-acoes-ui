@@ -4,6 +4,12 @@ import AxeBuilder from '@axe-core/playwright';
 const username = process.env['E2E_RUNTIME_ADMIN_USERNAME'] ?? process.env['E2E_ADMIN_USERNAME'];
 const password = process.env['E2E_RUNTIME_ADMIN_PASSWORD'] ?? process.env['E2E_ADMIN_PASSWORD'];
 const screenshotDir = process.env['E2E_SCREENSHOT_DIR'];
+const providerBase = process.env['E2E_PROVIDER_CONTROL_URL'] ?? 'http://127.0.0.1:9090';
+
+async function providerScenario(page: Page, provider: string, scenario: string): Promise<void> {
+  const response = await page.request.post(`${providerBase}/control/scenario?provider=${provider}&scenario=${scenario}`);
+  expect(response.ok(), `configurar ${provider}/${scenario}`).toBe(true);
+}
 
 async function login(page: Page, returnUrl = '/dashboard'): Promise<void> {
   if (!username || !password) throw new Error('E2E admin credentials must be supplied only through the runtime environment');
@@ -28,6 +34,29 @@ async function registerOperation(page: Page, type: 'COMPRA' | 'VENDA', asset: st
   await page.getByRole('button', { name: 'Confirmar registro simulado' }).dblclick();
   expect((await response).status()).toBe(200); await expect(page.getByText('Registro simulado concluído e leituras confirmadas pelo backend.')).toBeVisible();
 }
+
+test('provedores simulados oferecem matriz controlada sem credenciais ou rede financeira real', async ({ page }) => {
+  await page.request.post(`${providerBase}/control/reset`);
+  const cases = [
+    { provider: 'brapi', url: `${providerBase}/brapi/api/quote/PETR4?token=redacted-test-value` },
+    { provider: 'twelvedata', url: `${providerBase}/twelvedata/price?symbol=AAPL&apikey=redacted-test-value` },
+    { provider: 'bcb', url: `${providerBase}/bcb/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?$format=json` },
+    { provider: 'cvm', url: `${providerBase}/cvm/cad_intermed.zip` }
+  ];
+  for (const item of cases) {
+    for (const scenario of ['success', 'stale', 'rate-limit', 'invalid', 'unavailable']) {
+      await providerScenario(page, item.provider, scenario);
+      const response = await page.request.get(item.url);
+      expect(response.status()).toBe(scenario === 'rate-limit' ? 429 : scenario === 'unavailable' ? 503 : 200);
+      if (scenario === 'invalid') expect(await response.text()).toBe('{invalid-json');
+    }
+  }
+  const log = await (await page.request.get(`${providerBase}/control/requests`)).json();
+  expect(log.requests).toHaveLength(cases.length * 5);
+  expect(JSON.stringify(log)).not.toContain('redacted-test-value');
+  expect(new Set(log.requests.map((item: { provider: string }) => item.provider))).toEqual(new Set(cases.map(item => item.provider)));
+  await page.request.post(`${providerBase}/control/reset`);
+});
 
 test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 1024 }); await login(page);
@@ -67,6 +96,35 @@ test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, c
 
   await page.goto('/dashboard'); await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible(); await context.clearCookies();
   await page.getByRole('button', { name: 'Atualizar dados' }).click(); await expect(page).toHaveURL(/\/login/); await expect(page.getByText('Sua sessão expirou. Entre novamente para continuar.')).toBeVisible();
+  await login(page);
+  const logoutResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/auth/logout');
+  await page.getByRole('button', { name: 'Sair' }).click();
+  expect((await logoutResponse).status()).toBe(204);
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto('/dashboard');
+  await expect(page).toHaveURL(/\/login/);
+});
+
+test('jornada móvel preserva navegação, cartões, operação e conteúdo em 390 e 320 px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await login(page);
+  await expect(page.getByRole('navigation', { name: 'Navegação principal móvel' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navegação principal móvel' }).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+  for (const width of [390, 320]) {
+    const height = width === 390 ? 844 : 568;
+    for (const route of ['dashboard', 'carteira', 'acoes', 'corretoras', 'operacoes']) {
+      await page.goto(`/${route}`); await audit(page, `mobile-${route}`, width, height);
+      await expect(page.locator('main')).toBeVisible();
+      if (route !== 'dashboard') await expect(page.locator('.mobile-data-card').first()).toBeVisible();
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/operacoes');
+  const before = await (await page.request.get('/api/carteira/movimentacoes?size=100')).json();
+  await registerOperation(page, 'COMPRA', 'AAPL · AMERICANO', '1');
+  const after = await (await page.request.get('/api/carteira/movimentacoes?size=100')).json();
+  expect(after.totalElements).toBe(before.totalElements + 1);
+  await expect(page.locator('.mobile-data-card').filter({ hasText: 'AAPL' }).first()).toBeVisible();
+  await audit(page, 'mobile-operation-confirmed', 390, 844);
 });
 
 test('estados parcial e stale preservam dados confirmados', async ({ page }) => {
@@ -76,6 +134,54 @@ test('estados parcial e stale preservam dados confirmados', async ({ page }) => 
   await page.getByRole('button', { name: 'Atualizar dados' }).click(); await expect(page.getByText('Falha sintética de leitura')).toBeVisible(); await expect(page.locator('.mobile-data-card').getByText('AAPL').first()).toBeVisible();
   await audit(page, 'dashboard-stale', 390, 844);
 
+});
+
+test('409 e resultado desconhecido exigem reconciliação sem reenviar a mutação', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 }); await login(page, '/operacoes');
+  const prepare = async (): Promise<void> => {
+    await page.locator('#operation-asset').selectOption({ label: 'AAPL · AMERICANO' });
+    await page.locator('#operation-broker').selectOption({ label: 'Corretora Teste' });
+    await page.getByLabel('Quantidade inteira').fill('1');
+    await page.getByRole('button', { name: 'Revisar compra simulada' }).click();
+  };
+
+  let conflictRequests = 0;
+  const countConflict = (request: import('@playwright/test').Request): void => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/carteira/comprar') conflictRequests++;
+  };
+  page.on('request', countConflict);
+  await page.setExtraHTTPHeaders({ 'X-Atlas-E2E-Fault': 'conflict' });
+  await prepare();
+  const conflictResponse = page.waitForResponse(response => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/carteira/comprar');
+  await page.getByRole('button', { name: 'Confirmar registro simulado' }).click();
+  const receivedConflict = await conflictResponse;
+  expect(receivedConflict.status()).toBe(409);
+  await receivedConflict.finished();
+  expect((await receivedConflict.json()).code).toBe('CONCURRENT_OPERATION');
+  await expect(page.getByText(/Outra operação alterou/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Reconciliar sem reenviar' }).click();
+  await expect(page.getByText(/Leituras reconciliadas/)).toBeVisible();
+  expect(conflictRequests).toBe(1);
+  page.off('request', countConflict);
+  await page.setExtraHTTPHeaders({});
+
+  const beforeUnknown = await (await page.request.get('/api/carteira/movimentacoes?size=100')).json();
+  let unknownRequests = 0;
+  await page.route('**/api/carteira/comprar', async route => {
+    unknownRequests++;
+    const response = await route.fetch();
+    expect(response.ok()).toBe(true);
+    await route.abort('connectionfailed');
+  });
+  await prepare(); await page.getByRole('button', { name: 'Confirmar registro simulado' }).click();
+  await expect(page.getByText(/não confirmou nem recusou/)).toBeVisible();
+  await page.getByRole('button', { name: 'Reconciliar sem reenviar' }).click();
+  await expect(page.getByText(/Leituras reconciliadas/)).toBeVisible();
+  const afterUnknown = await (await page.request.get('/api/carteira/movimentacoes?size=100')).json();
+  expect(unknownRequests).toBe(1);
+  expect(afterUnknown.totalElements).toBe(beforeUnknown.totalElements + 1);
+  await page.unroute('**/api/carteira/comprar');
 });
 
 test('navegação, filtros, atualização e revisão funcionam somente por teclado', async ({ page }) => {

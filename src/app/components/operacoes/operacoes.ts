@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { forkJoin, finalize, timeout, TimeoutError } from 'rxjs';
 import { Movement, MovementQuery, MovementType, PageResponse } from '../../core/portfolio/portfolio.models';
@@ -42,7 +42,8 @@ export class OperacoesComponent implements OnInit, OnDestroy {
   private positions: { assetId: number; brokerId: number; quantity: number }[] = [];
 
   constructor(private readonly portfolio: PortfolioReadService, private readonly operations: CarteiraService,
-    private readonly assetsService: AcaoService, private readonly brokersService: CorretoraService) {}
+    private readonly assetsService: AcaoService, private readonly brokersService: CorretoraService,
+    private readonly changeDetector: ChangeDetectorRef) {}
   ngOnInit(): void { this.loadChoices(); this.loadMovements(); this.loadPositions(); }
   ngOnDestroy(): void { this.movementsFacade.destroy(); }
   get movementPage(): PageResponse<Movement> | undefined { return stateData(this.movementsFacade.state()); }
@@ -64,7 +65,11 @@ export class OperacoesComponent implements OnInit, OnDestroy {
       qtd: this.form.controls.quantity.value!, corretoraId: this.selectedBroker.id };
     this.pending = true; this.form.disable(); this.clearOutcome();
     const request = this.form.controls.type.value === 'COMPRA' ? this.operations.comprar(payload) : this.operations.vender(payload);
-    request.pipe(timeout({ first: 10_000 }), finalize(() => { this.pending = false; this.form.enable(); })).subscribe({
+    request.pipe(timeout({ first: 10_000 }), finalize(() => {
+      this.pending = false;
+      this.form.enable();
+      this.changeDetector.markForCheck();
+    })).subscribe({
       next: () => { this.outcome = 'success'; this.message = 'Registro simulado confirmado pelo backend. Atualizando as leituras confirmadas…'; this.reviewing = false; this.refreshAfterConfirmation(); },
       error: error => this.handleMutationError(error)
     });
