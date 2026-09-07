@@ -20,7 +20,7 @@ describe('Atlas design tokens', () => {
     expect(DESIGN_TOKENS.spacing.lg).toBe('1rem');
     expect(DESIGN_TOKENS.radius.large).toBe('1rem');
     expect(DESIGN_TOKENS.breakpoints).toEqual({ mobile: '48rem', desktop: '75rem' });
-    expect(DESIGN_TOKENS.navigation.mobileBar).toBe('4.5rem');
+    expect(DESIGN_TOKENS.navigation.mobileBar).toBe('4rem');
   });
 
   it('inclui políticas globais para movimento reduzido e cores forçadas', () => {

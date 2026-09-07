@@ -37,7 +37,7 @@ export class OperacoesComponent implements OnInit, OnDestroy {
     brokerId: new FormControl<number | ''>('', { nonNullable: true }), from: new FormControl('', { nonNullable: true }), to: new FormControl('', { nonNullable: true })
   });
   assets: Acao[] = []; brokers: Corretora[] = []; choicesLoading = true; choicesError = '';
-  page = 0; readonly size = 20; reviewing = false; pending = false; mustReconcile = false;
+  page = 0; readonly size = 20; reviewing = false; pending = false; mustReconcile = false; filtersExpanded = false;
   outcome: OperationOutcome = 'idle'; message = ''; fieldErrors: Record<string, string> = {};
   private positions: { assetId: number; brokerId: number; quantity: number }[] = [];
 
@@ -49,6 +49,7 @@ export class OperacoesComponent implements OnInit, OnDestroy {
   get movementPage(): PageResponse<Movement> | undefined { return stateData(this.movementsFacade.state()); }
   get selectedAsset(): Acao | undefined { return this.assets.find(item => item.id === Number(this.form.controls.assetId.value)); }
   get selectedBroker(): Corretora | undefined { return this.brokers.find(item => item.id === Number(this.form.controls.brokerId.value)); }
+  get activeFilterCount(): number { return Object.values(this.filters.getRawValue()).filter(Boolean).length; }
   get availableQuantity(): number | undefined { const asset = this.selectedAsset; const broker = this.selectedBroker; if (!asset?.id || !broker?.id) return undefined; return this.positions.find(item => item.assetId === asset.id && item.brokerId === broker.id)?.quantity; }
 
   loadChoices(): void { this.choicesLoading = true; this.choicesError = ''; forkJoin({ assets: this.assetsService.listar(), brokers: this.brokersService.listar() }).pipe(finalize(() => this.choicesLoading = false)).subscribe({ next: value => { this.assets = value.assets; this.brokers = value.brokers; }, error: error => this.choicesError = parseApiError(error).message }); }
@@ -56,6 +57,7 @@ export class OperacoesComponent implements OnInit, OnDestroy {
   loadMovements(): void { const raw = this.filters.getRawValue(); const query: MovementQuery = { page: this.page, size: this.size }; if (raw.type) query.type = raw.type; if (raw.ticker.trim()) query.ticker = raw.ticker.trim().toLocaleUpperCase('pt-BR'); if (raw.brokerId) query.brokerId = raw.brokerId; if (raw.from) query.from = new Date(`${raw.from}T00:00:00-03:00`).toISOString(); if (raw.to) query.to = new Date(`${raw.to}T23:59:59-03:00`).toISOString(); this.movementsFacade.load(() => this.portfolio.movements(query), page => page.items.length === 0); }
   applyFilters(): void { this.page = 0; this.loadMovements(); }
   clearFilters(): void { this.filters.reset({ type: '', ticker: '', brokerId: '', from: '', to: '' }); this.applyFilters(); }
+  toggleFilters(): void { this.filtersExpanded = !this.filtersExpanded; }
   changePage(value: number): void { this.page = value; this.loadMovements(); }
   review(): void { this.clearOutcome(); this.form.markAllAsTouched(); if (this.form.invalid || !this.selectedAsset || !this.selectedBroker) return; this.reviewing = true; }
   cancelReview(): void { if (!this.pending) this.reviewing = false; }

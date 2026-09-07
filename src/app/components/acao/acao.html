@@ -1,8 +1,8 @@
-<app-page-header title="Ações" eyebrow="Catálogo de ativos" description="Cadastre ativos para a simulação e atualize suas cotações com feedback rastreável.">
+<app-page-header title="Ações" eyebrow="Ativos monitorados" description="Cadastre ativos e acompanhe a origem de suas cotações.">
   <button type="button" class="button-secondary" (click)="load()" [disabled]="facade.state().status === 'loading'">Atualizar lista</button>
 </app-page-header>
 
-<section class="panel form-panel" aria-labelledby="asset-form-title"><div class="panel-heading"><div><h2 id="asset-form-title">Cadastrar ativo</h2><p>Use o ticker canônico do mercado selecionado. O preço nunca é informado manualmente.</p></div></div>
+<section class="panel form-panel" aria-labelledby="asset-form-title"><div class="panel-heading"><div><p class="section-kicker">Novo ativo</p><h2 id="asset-form-title">Cadastrar ativo</h2><p>Use o ticker canônico; a cotação é consultada pelo backend.</p></div></div>
   @if (mensagemErro) { <app-error-summary [message]="mensagemErro" [fieldErrors]="errosCampos" /> }
   @if (mensagemSucesso) { <p class="status-message" data-tone="success" aria-live="polite">{{ mensagemSucesso }}</p> }
   <form [formGroup]="form" (ngSubmit)="adicionarAcao()" class="toolbar" [attr.aria-busy]="salvando">
@@ -12,7 +12,7 @@
   </form>
 </section>
 
-<section class="catalog" aria-labelledby="asset-list-title"><div class="panel-heading"><div><h2 id="asset-list-title">Ativos monitorados</h2><p>Cotações legadas sem proveniência aparecem como origem não informada.</p></div><div class="field search"><label for="asset-search">Buscar</label><input id="asset-search" type="search" [formControl]="search"></div></div>
+<section class="catalog panel" aria-labelledby="asset-list-title"><div class="panel-heading"><div><p class="section-kicker">Catálogo</p><h2 id="asset-list-title">Ativos monitorados</h2></div><div class="field search"><label for="asset-search">Buscar</label><input id="asset-search" type="search" [formControl]="search"></div></div>
   <app-async-region [state]="facade.state()" label="catálogo de ações" emptyTitle="Nenhum ativo cadastrado" emptyMessage="Cadastre o primeiro ativo para habilitar operações simuladas." (retry)="load()">
     @if (acoes.length && !visibleActions.length) { <app-empty-state title="Nenhum ativo corresponde à busca" message="Altere o texto de busca para ver o catálogo confirmado." /> }
     @if (visibleActions.length) { <app-responsive-data-list label="Ativos monitorados"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Mercado</th><th scope="col">Cotação</th><th scope="col">Referência</th><th scope="col">Origem, coleta e freshness</th><th scope="col">Ação</th></tr></thead><tbody>@for (action of visibleActions; track action.id || action.ticker) { <tr><th scope="row"><strong>{{ action.ticker }}</strong><small>{{ action.nomeEmpresa || 'Empresa não detalhada' }}</small></th><td>{{ action.mercado }}</td><td>{{ quoteText(action) }}</td><td><app-date-time-value [value]="action.quoteReferenceAt || action.dataHoraCotacao || null" /></td><td>@if (action.quoteProvider) { <app-status-badge [label]="action.quoteProvider" tone="positive" symbol="✓" /><small>Fonte: {{ action.quoteSourceType || 'Tipo não informado' }}</small><small>Coleta: <app-date-time-value [value]="action.quoteFetchedAt || null" /></small><small>Freshness não informada por este contrato.</small> } @else { <app-status-badge label="Origem não informada" tone="neutral" symbol="?" /><small>Coleta e freshness indisponíveis no contrato legado.</small> }</td><td><button class="button-secondary" type="button" (click)="atualizarPreco(action.id)" [disabled]="!action.id || atualizando.has(action.id!)">{{ action.id && atualizando.has(action.id) ? 'Atualizando…' : 'Atualizar cotação' }}</button></td></tr> }</tbody></table>

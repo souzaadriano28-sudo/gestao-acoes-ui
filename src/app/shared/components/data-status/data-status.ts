@@ -8,7 +8,7 @@ import { availabilityLabel } from '../../formatters/value-formatters';
   standalone: true,
   template: '<span class="badge" [attr.data-status]="availability"><span aria-hidden="true">{{ symbol }}</span> {{ label }}</span><span class="sr-only" *ngIf="reason">. {{ reason }}</span>',
   imports: [NgIf],
-  styles: ['.badge{display:inline-flex;align-items:center;gap:var(--space-1);min-height:var(--target-min);padding:var(--space-1) var(--space-2);border:1px solid currentColor;border-radius:var(--radius-pill);font-size:var(--font-size-xs);font-weight:700}.badge[data-status="AVAILABLE"]{color:var(--color-positive)}.badge[data-status="STALE"]{color:var(--color-warning)}.badge[data-status="UNAVAILABLE"]{color:var(--color-negative)}'],
+  styles: [':host{min-width:0;max-width:100%}.badge{display:inline-flex;align-items:center;gap:var(--space-1);min-height:var(--target-min);max-width:100%;padding:var(--space-1) var(--space-2);border:1px solid transparent;border-radius:var(--radius-pill);font-size:var(--font-size-xs);font-weight:750;white-space:normal}.badge[data-status="AVAILABLE"]{background:var(--color-positive-soft);color:var(--color-positive)}.badge[data-status="STALE"]{border-color:var(--color-warning-border);background:var(--color-warning-soft);color:var(--color-warning-strong)}.badge[data-status="UNAVAILABLE"]{border-color:var(--color-negative-border);background:var(--color-negative-soft);color:var(--color-negative-strong)}'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DataStatusComponent {

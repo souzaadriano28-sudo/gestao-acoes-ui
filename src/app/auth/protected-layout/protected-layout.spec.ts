@@ -26,9 +26,12 @@ describe('ProtectedLayoutComponent', () => {
     expect(root.querySelector('.skip-link')?.getAttribute('href')).toBe('#conteudo');
     expect(root.querySelectorAll('.side-navigation a')).toHaveLength(5);
     expect(root.querySelectorAll('.mobile-navigation a')).toHaveLength(5);
+    expect(root.querySelectorAll('.side-navigation app-atlas-icon')).toHaveLength(5);
+    expect(root.querySelector('.side-navigation a')?.textContent).toContain('Visão geral');
     expect(root.querySelector('.rail')).toBeTruthy();
     expect(root.querySelector('.mobile-navigation')).toBeTruthy();
-    expect(root.querySelector('.academic-disclaimer')?.textContent).toContain('nenhuma ordem é enviada');
+    expect(root.querySelector('.academic-disclaimer')?.textContent?.toLocaleLowerCase('pt-BR')).toContain('nenhuma ordem é enviada');
+    expect(root.querySelectorAll('.academic-disclaimer')).toHaveLength(1);
     (root.querySelector('.skip-link') as HTMLAnchorElement).click();
     expect(document.activeElement).toBe(root.querySelector('#conteudo'));
     const firstLink = root.querySelector('.side-navigation a') as HTMLAnchorElement;

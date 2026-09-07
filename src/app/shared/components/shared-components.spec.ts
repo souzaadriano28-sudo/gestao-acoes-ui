@@ -7,8 +7,21 @@ import { SummaryCardComponent } from './summary-card/summary-card';
 import { ToastRegionComponent } from './toast-region/toast-region';
 import { StatusBadgeComponent } from './status-badge/status-badge';
 import { asyncState } from '../state/async-state';
+import { AtlasIconComponent } from './atlas-icon/atlas-icon';
 
 describe('shared data components', () => {
+  it('renderiza os SVGs Atlas localmente como decoração sem fonte externa', async () => {
+    await TestBed.configureTestingModule({ imports: [AtlasIconComponent] }).compileComponents();
+    for (const name of ['dashboard', 'portfolio', 'assets', 'brokers', 'operations'] as const) {
+      const fixture = TestBed.createComponent(AtlasIconComponent);
+      fixture.componentRef.setInput('name', name);
+      fixture.detectChanges();
+      const svg = fixture.nativeElement.querySelector('svg') as SVGElement;
+      expect(svg).toBeTruthy();
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+      expect(fixture.nativeElement.querySelector('img,use')).toBeNull();
+    }
+  });
   it('renderiza dinheiro indisponível sem zero substituto', async () => {
     await TestBed.configureTestingModule({ imports: [CurrencyValueComponent] }).compileComponents();
     const fixture = TestBed.createComponent(CurrencyValueComponent);

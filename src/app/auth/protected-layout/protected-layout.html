@@ -1,34 +1,35 @@
 <a class="skip-link" href="#conteudo" (click)="skipToContent($event)">Pular para o conteúdo</a>
 <div class="app-shell">
   <aside class="rail" aria-label="Atlas Carteira">
-    <a class="brand" routerLink="/dashboard" aria-label="Atlas Carteira — Dashboard">
-      <span class="brand-mark" aria-hidden="true">AC</span>
-      <span class="brand-copy"><strong>Atlas Carteira</strong><small>Acompanhamento acadêmico</small></span>
+    <a class="brand" routerLink="/dashboard" aria-label="Atlas Carteira — Visão geral">
+      <span class="brand-mark" aria-hidden="true"><i></i></span>
+      <span class="brand-copy"><strong>Atlas</strong><small>Carteira</small></span>
     </a>
     <nav class="side-navigation" aria-label="Navegação principal">
-      <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">D</span><b>Dashboard</b></a>
-      <a routerLink="/carteira" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">C</span><b>Carteira</b></a>
-      <a routerLink="/acoes" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">A</span><b>Ações</b></a>
-      <a routerLink="/corretoras" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">R</span><b>Corretoras</b></a>
-      <a routerLink="/operacoes" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">O</span><b>Operações</b></a>
+      <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="dashboard" /><b>Visão geral</b></a>
+      <a routerLink="/carteira" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="portfolio" /><b>Carteira</b></a>
+      <a routerLink="/acoes" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="assets" /><b>Ações</b></a>
+      <a routerLink="/corretoras" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="brokers" /><b>Corretoras</b></a>
+      <a routerLink="/operacoes" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="operations" /><b>Operações</b></a>
     </nav>
-    <p class="rail-note">Sistema acadêmico. Não executa ordens nem constitui recomendação de investimento.</p>
+    <p class="rail-note"><strong>Ambiente acadêmico</strong><span>Registros simulados</span></p>
   </aside>
 
   <div class="workspace">
     <header class="topbar">
-      <div><span class="context">Área protegida</span><strong>Atlas Carteira</strong></div>
+      <a class="mobile-brand" routerLink="/dashboard"><span class="brand-mark" aria-hidden="true"><i></i></span><strong>Atlas</strong></a>
+      <div class="protected-context"><span class="context">Área protegida</span><strong>Atlas Carteira</strong></div>
       <div class="account"><span>{{ store.state().username }}</span><button type="button" (click)="logout()" [disabled]="loggingOut" [attr.aria-busy]="loggingOut">{{ loggingOut ? 'Saindo…' : 'Sair' }}</button></div>
     </header>
     <main #content id="conteudo" tabindex="-1"><router-outlet /></main>
-    <footer class="academic-disclaimer">Sistema acadêmico. Os registros são simulados; nenhuma ordem é enviada ao mercado e o conteúdo não constitui recomendação de investimento.</footer>
+    <footer class="academic-disclaimer">Simulação acadêmica · Nenhuma ordem é enviada; não constitui recomendação.</footer>
   </div>
 
   <nav class="mobile-navigation" aria-label="Navegação principal móvel">
-    <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">D</span><b>Dashboard</b></a>
-    <a routerLink="/carteira" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">C</span><b>Carteira</b></a>
-    <a routerLink="/acoes" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">A</span><b>Ações</b></a>
-    <a routerLink="/corretoras" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">R</span><b>Corretoras</b></a>
-    <a routerLink="/operacoes" routerLinkActive="active" ariaCurrentWhenActive="page"><span aria-hidden="true">O</span><b>Operações</b></a>
+    <a routerLink="/dashboard" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="dashboard" /><b>Visão geral</b></a>
+    <a routerLink="/carteira" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="portfolio" /><b>Carteira</b></a>
+    <a routerLink="/acoes" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="assets" /><b>Ações</b></a>
+    <a routerLink="/corretoras" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="brokers" /><b>Corretoras</b></a>
+    <a routerLink="/operacoes" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="operations" /><b>Operações</b></a>
   </nav>
 </div>

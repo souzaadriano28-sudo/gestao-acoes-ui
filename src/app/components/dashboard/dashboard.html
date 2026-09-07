@@ -1,39 +1,47 @@
-<app-page-header title="Dashboard" eyebrow="Resumo da carteira" description="Acompanhe sua carteira simulada com valores e fontes calculados pelo backend.">
-  <button type="button" class="button-secondary" (click)="refresh()" [disabled]="facade.state().status === 'loading'">Atualizar dados</button>
-  <a class="button-primary" routerLink="/operacoes">Registrar operação simulada</a>
+<app-page-header title="Sua carteira" eyebrow="Visão geral" description="Posições e valores confirmados pelo backend.">
+  <button type="button" class="button-secondary" aria-label="Atualizar dados" (click)="refresh()" [disabled]="facade.state().status === 'loading'"><app-atlas-icon name="refresh" /> Atualizar</button>
+  <a class="button-primary" routerLink="/operacoes"><app-atlas-icon name="plus" /> Registrar operação</a>
 </app-page-header>
 
-<app-async-region [state]="facade.state()" label="dashboard da carteira" emptyTitle="Sua carteira simulada começa aqui" emptyMessage="Cadastre uma corretora e um ativo antes de registrar a primeira compra simulada." (retry)="refresh()">
-  <div empty-action class="empty-actions"><a class="button-secondary" routerLink="/corretoras">Cadastrar corretora</a><a class="button-secondary" routerLink="/acoes">Cadastrar ativo</a><a class="button-primary" routerLink="/operacoes">Registrar compra simulada</a></div>
+<app-async-region [state]="facade.state()" label="dashboard da carteira" emptyTitle="Sua carteira começa aqui" emptyMessage="Cadastre uma corretora e um ativo antes da primeira compra simulada." (retry)="refresh()">
+  <div empty-action class="empty-actions"><a class="button-secondary" routerLink="/corretoras">Cadastrar corretora</a><a class="button-secondary" routerLink="/acoes">Cadastrar ativo</a><a class="button-primary" routerLink="/operacoes">Registrar compra</a></div>
   @if (data; as dashboard) {
-    @if (hasPartialData) { <app-partial-data-state message="Alguns valores ou fontes estão indisponíveis ou desatualizados. Os dados confirmados permanecem visíveis; nenhum total parcial é apresentado como completo." /> }
+    @if (hasPartialData) { <app-partial-data-state message="Parte dos valores não pôde ser concluída. Os dados confirmados continuam visíveis; nenhum total parcial é apresentado como completo." /> }
     <section class="summary-grid" aria-label="Resumo financeiro">
-      <app-summary-card label="Patrimônio estimado" [metric]="dashboard.patrimony" [context]="'Consolidado em ' + dashboard.presentationCurrency" />
-      <app-summary-card label="Custo das posições" [metric]="dashboard.cost" context="Calculado pelo backend" />
-      <app-summary-card label="Resultado não realizado" [metric]="dashboard.unrealizedResult" context="Valor absoluto confirmado" />
-      <article class="count-card"><div><h2>Posições ativas</h2><app-data-status availability="AVAILABLE" /></div><p>{{ dashboard.positionCount }}</p><small>Posições ativo–corretora</small></article>
+      <article class="patrimony-card" [attr.data-availability]="dashboard.patrimony.availability">
+        <span class="contour" aria-hidden="true"></span>
+        <div class="hero-heading"><h2>Patrimônio estimado</h2><app-data-status [availability]="dashboard.patrimony.availability" [reason]="dashboard.patrimony.reason" /></div>
+        <p class="hero-value"><app-currency-value [metric]="dashboard.patrimony" /></p>
+        <p>Consolidado em {{ dashboard.presentationCurrency }} · <app-date-time-value [value]="dashboard.asOf" /></p>
+        @if (dashboard.patrimony.availability !== 'AVAILABLE') { <strong class="hero-impact">{{ dashboard.patrimony.availability === 'STALE' ? 'Valor mantido com referência anterior.' : 'Total não concluído com segurança.' }}</strong> }
+      </article>
+      <app-summary-card label="Custo das posições" [metric]="dashboard.cost" context="Base investida" />
+      <app-summary-card label="Resultado não realizado" [metric]="dashboard.unrealizedResult" context="Diferença não realizada" />
+      <article class="count-card"><h2>Posições ativas</h2><p>{{ dashboard.positionCount }}</p><small>ativo–corretora</small></article>
     </section>
 
-    <section class="panel" aria-labelledby="dashboard-positions-title">
-      <div class="panel-heading"><div><h2 id="dashboard-positions-title">Principais posições</h2><p>Valores nativos, sem somas calculadas no navegador.</p></div><a class="button-quiet" routerLink="/carteira">Ver carteira</a></div>
-      @if (dashboard.positions.length) {
-        <app-responsive-data-list label="Principais posições">
-          <table><thead><tr><th scope="col">Ativo</th><th scope="col">Corretora</th><th scope="col">Quantidade</th><th scope="col">Preço médio</th><th scope="col">Cotação</th><th scope="col">Valor atual</th><th scope="col">Resultado</th></tr></thead>
-            <tbody>@for (position of dashboard.positions; track positionKey(position)) { <tr><th scope="row"><strong>{{ position.ticker }}</strong><small>{{ position.market }} · {{ position.nativeCurrency }}</small></th><td>{{ position.brokerName }}</td><td>{{ position.quantity }}</td><td><app-currency-value [metric]="position.averagePrice" /></td><td><app-currency-value [metric]="position.currentQuote" /></td><td><app-currency-value [metric]="position.marketValue" /></td><td><app-currency-value [metric]="position.unrealizedResult" /></td></tr> }</tbody></table>
-          <div mobile-cards>@for (position of dashboard.positions; track positionKey(position)) { <article class="mobile-data-card"><header><div><strong>{{ position.ticker }}</strong><div class="muted">{{ position.brokerName }} · {{ position.nativeCurrency }}</div></div><app-currency-value [metric]="position.marketValue" /></header><dl><div><dt>Quantidade</dt><dd>{{ position.quantity }}</dd></div><div><dt>Preço médio</dt><dd><app-currency-value [metric]="position.averagePrice" /></dd></div><div><dt>Cotação</dt><dd><app-currency-value [metric]="position.currentQuote" /></dd></div><div><dt>Resultado</dt><dd><app-currency-value [metric]="position.unrealizedResult" /></dd></div></dl></article> }</div>
-        </app-responsive-data-list>
-      } @else { <app-empty-state title="Nenhuma posição ativa" message="As posições confirmadas aparecerão aqui após uma compra simulada." /> }
-    </section>
-
-    <div class="lower-grid">
-      <section class="panel" aria-labelledby="recent-title"><div class="panel-heading"><div><h2 id="recent-title">Movimentações recentes</h2><p>Histórico persistido pelo backend.</p></div><a class="button-quiet" routerLink="/operacoes" [queryParams]="{ view: 'history' }">Ver todas</a></div>
-        @if (dashboard.recentMovements.length) { <ul class="movement-list">@for (movement of dashboard.recentMovements; track movementKey(movement)) { <li><span class="movement-symbol" [attr.data-type]="movement.type" aria-hidden="true">{{ movement.type === 'COMPRA' ? '↓' : '↑' }}</span><div><strong>{{ movement.type === 'COMPRA' ? 'Compra' : 'Venda' }} simulada · {{ movement.ticker }}</strong><small><app-date-time-value [value]="movement.recordedAt" /> · {{ movement.brokerName }}</small></div><span>{{ movement.quantity }} × <app-currency-value [metric]="movement.unitPrice" /></span></li> }</ul> } @else { <app-empty-state title="Nenhuma movimentação" message="O histórico confirmado ainda está vazio." /> }
+    <div class="content-grid">
+      <section class="panel positions-panel" aria-labelledby="dashboard-positions-title">
+        <div class="panel-heading"><div><p class="section-kicker">Composição atual</p><h2 id="dashboard-positions-title">Principais posições</h2></div><a class="button-quiet" routerLink="/carteira">Ver carteira</a></div>
+        @if (dashboard.positions.length) {
+          <app-responsive-data-list label="Principais posições">
+            <table><thead><tr><th scope="col">Ativo</th><th scope="col">Quantidade</th><th scope="col">Preço médio</th><th scope="col">Valor atual</th><th scope="col">Resultado</th></tr></thead><tbody>@for (position of dashboard.positions; track positionKey(position)) { <tr><th scope="row"><strong>{{ position.ticker }}</strong><small>{{ position.market }} · {{ position.nativeCurrency }}</small></th><td class="numeric">{{ position.quantity }}</td><td class="numeric"><app-currency-value [metric]="position.averagePrice" /></td><td class="numeric"><app-currency-value [metric]="position.marketValue" /></td><td class="numeric"><app-currency-value [metric]="position.unrealizedResult" /></td></tr> }</tbody></table>
+            <div mobile-cards>@for (position of dashboard.positions; track positionKey(position)) { <article class="mobile-data-card"><header><div><strong>{{ position.ticker }}</strong><div class="muted">{{ position.market }} · {{ position.brokerName }}</div></div><app-currency-value [metric]="position.marketValue" /></header><dl><div><dt>Quantidade</dt><dd>{{ position.quantity }}</dd></div><div><dt>Moeda</dt><dd>{{ position.nativeCurrency }}</dd></div><div><dt>Preço médio</dt><dd><app-currency-value [metric]="position.averagePrice" /></dd></div><div><dt>Resultado</dt><dd><app-currency-value [metric]="position.unrealizedResult" /></dd></div></dl></article> }</div>
+          </app-responsive-data-list>
+        } @else { <app-empty-state title="Nenhuma posição ativa" message="As posições confirmadas aparecerão após uma compra simulada." /> }
       </section>
-      <section class="panel" aria-labelledby="sources-title"><div class="panel-heading"><div><h2 id="sources-title">Qualidade dos dados</h2><p>Fonte, referência, coleta e atualidade.</p></div></div><div class="source-list">
+
+      <section class="panel movement-panel" aria-labelledby="recent-title"><div class="panel-heading"><div><p class="section-kicker">Atividade</p><h2 id="recent-title">Movimentações</h2></div><a class="button-quiet" routerLink="/operacoes" [queryParams]="{ view: 'history' }">Ver todas</a></div>
+        @if (dashboard.recentMovements.length) { <ul class="movement-list">@for (movement of dashboard.recentMovements; track movementKey(movement)) { <li><span class="movement-symbol" [attr.data-type]="movement.type" aria-hidden="true">{{ movement.type === 'COMPRA' ? '↓' : '↑' }}</span><div><strong>{{ movement.type === 'COMPRA' ? 'Compra' : 'Venda' }} · {{ movement.ticker }}</strong><small><app-date-time-value [value]="movement.recordedAt" /> · {{ movement.brokerName }}</small></div><span>{{ movement.quantity }} × <app-currency-value [metric]="movement.unitPrice" /></span></li> }</ul> } @else { <app-empty-state title="Nenhuma movimentação" message="O histórico confirmado ainda está vazio." /> }
+      </section>
+    </div>
+
+    <details class="quality disclosure" [open]="qualityAvailability !== 'AVAILABLE'">
+      <summary><div><app-data-status [availability]="qualityAvailability" /><span><strong>{{ qualitySummary }}</strong><small>Leitura de <app-date-time-value [value]="dashboard.asOf" /></small></span></div><span class="summary-hint">Fonte, referência, coleta e freshness</span></summary>
+      <div class="quality-details">
         @for (source of dashboard.quoteSources; track $index) { <app-quote-provenance [provenance]="source" /> }
         <article class="exchange-source"><div><strong>Câmbio {{ dashboard.exchangeSource.baseCurrency }}/{{ dashboard.exchangeSource.quoteCurrency }}</strong><app-data-status [availability]="dashboard.exchangeSource.availability" [reason]="dashboard.exchangeSource.reason" /></div><p>{{ dashboard.exchangeSource.provider || 'Origem não informada' }}@if (dashboard.exchangeSource.referenceKind) { · {{ dashboard.exchangeSource.referenceKind }} }</p><dl><div><dt>Referência</dt><dd><app-date-time-value [value]="dashboard.exchangeSource.referenceAt" /></dd></div><div><dt>Coleta</dt><dd><app-date-time-value [value]="dashboard.exchangeSource.fetchedAt" /></dd></div></dl></article>
-      </div></section>
-    </div>
-    <p class="as-of">Leitura consolidada em <app-date-time-value [value]="dashboard.asOf" />.</p>
+      </div>
+    </details>
   }
 </app-async-region>
