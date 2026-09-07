@@ -7,7 +7,7 @@ const requests = [];
 let failBrapiAfterSuccesses = null;
 
 const cvmArchive = Buffer.from(
-  'UEsDBBQAAAAIANCwJl3rrF6gUAAAAFQAAAAQAAAAY2FkX2ludGVybWVkLmNzdgXBMQ6AIAwAwJ1X8AERCoNJJ1IxwUhLanX1/7/wzuY3q1onJJ4n3t2Q9o/e4UhUm4lWTCkAQMg5rzHGtGwJ2/DHw9SF62hs4ll01AsLFHA/UEsBAhQAFAAAAAgA0LAmXeusXqBQAAAAVAAAABAAAAAAAAAAAAAAAAAAAAAAAGNhZF9pbnRlcm1lZC5jc3ZQSwUGAAAAAAEAAQA+AAAAfgAAAAAA',
+  'UEsDBBQAAAAIAIiGJ11sNkNnUwAAAFYAAAAQAAAAY2FkX2ludGVybWVkLmNzdgXBMQ6AIAwAwN3EP/ABEYqDSSdSMcFIS2p15f+/8M766FmtEhL3C59qSMegr00kqsVE84MxegDwKaU1hBCXPWJp7nyZqnBuhU0ci7Z84wYbzNMPUEsBAhQAFAAAAAgAiIYnXWw2Q2dTAAAAVgAAABAAAAAAAAAAAAAAAAAAAAAAAGNhZF9pbnRlcm1lZC5jc3ZQSwUGAAAAAAEAAQA+AAAAgQAAAAAA',
   'base64'
 );
 
@@ -85,7 +85,7 @@ const server = http.createServer((request, response) => {
   if (url.pathname === '/brasilapi/cnpj/v1/11222333000181') {
     return json(response, 200, {
       razao_social: 'Corretora Teste', nome_fantasia: 'Corretora Teste',
-      descricao_situacao_cadastral: 'ATIVA', cnae_fiscal: 6612601
+      descricao_situacao_cadastral: 'ATIVA', cnae_fiscal: 6612601, cep: '01001-000'
     });
   }
   if (url.pathname === '/viacep/01001000/json/') {
@@ -107,5 +107,5 @@ const server = http.createServer((request, response) => {
   return json(response, 404, { error: 'provider fixture not found' });
 });
 
-server.listen(9090, process.env.PROVIDER_STUB_HOST || '127.0.0.1');
+server.listen(Number(process.env.PROVIDER_STUB_PORT || 9190), process.env.PROVIDER_STUB_HOST || '127.0.0.1');
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));

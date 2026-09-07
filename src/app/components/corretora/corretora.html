@@ -1,21 +1,62 @@
-<app-page-header title="Corretoras" eyebrow="Instituições" description="Dados empresariais e evidência CVM permanecem claramente separados.">
+<app-page-header title="Corretoras" eyebrow="Instituições" description="Cadastre uma instituição somente após validar CNPJ, autorização CVM e endereço.">
   <button type="button" class="button-secondary" (click)="refreshEvidence()" [disabled]="refreshingEvidence">{{ refreshingEvidence ? 'Consultando…' : 'Atualizar evidências' }}</button>
   <button type="button" class="button-secondary" (click)="load()" [disabled]="facade.state().status === 'loading'">Atualizar lista</button>
 </app-page-header>
-<section class="panel form-panel" aria-labelledby="broker-form-title"><div class="panel-heading"><div><p class="section-kicker">Nova instituição</p><h2 id="broker-form-title">Cadastrar corretora</h2><p>Situação empresarial não comprova autorização da CVM.</p></div></div>
-  @if (mensagemErro) { <app-error-summary [message]="mensagemErro" [fieldErrors]="errosCampos" [retryable]="false" /> }
-  @if (mensagemSucesso) { <p class="status-message" data-tone="success" aria-live="polite">{{ mensagemSucesso }}</p> }
-  <form class="toolbar" [formGroup]="form" (ngSubmit)="adicionarCorretora()" [attr.aria-busy]="salvando">
-    <div class="field"><label for="broker-cnpj">CNPJ</label><input id="broker-cnpj" formControlName="cnpj" inputmode="numeric" autocomplete="off" aria-describedby="broker-cnpj-help broker-cnpj-error" [attr.aria-invalid]="form.controls.cnpj.invalid && form.controls.cnpj.touched"><small id="broker-cnpj-help" class="muted">14 dígitos; pontuação é opcional.</small>@if (form.controls.cnpj.invalid && form.controls.cnpj.touched) { <p id="broker-cnpj-error" class="field-error">Informe um CNPJ com 14 dígitos.</p> } @else if (errosCampos['cnpj']) { <p id="broker-cnpj-error" class="field-error">{{ errosCampos['cnpj'] }}</p> }</div>
-    <div class="field"><label for="broker-cep">CEP</label><input id="broker-cep" formControlName="cep" inputmode="numeric" autocomplete="postal-code" aria-describedby="broker-cep-error" [attr.aria-invalid]="form.controls.cep.invalid && form.controls.cep.touched">@if (form.controls.cep.invalid && form.controls.cep.touched) { <p id="broker-cep-error" class="field-error">Informe um CEP com 8 dígitos.</p> } @else if (errosCampos['cep']) { <p id="broker-cep-error" class="field-error">{{ errosCampos['cep'] }}</p> }</div>
-    <button class="button-primary" type="submit" [disabled]="salvando">{{ salvando ? 'Cadastrando…' : 'Cadastrar corretora' }}</button>
+
+<section class="panel registration-flow" aria-labelledby="broker-form-title">
+  <div class="panel-heading"><div><p class="section-kicker">Nova instituição</p><h2 id="broker-form-title">Cadastrar corretora</h2><p>As consultas são refeitas pelo servidor no momento da confirmação.</p></div></div>
+  @if (mensagemSucesso) { <p class="status-message" data-tone="success" role="status">{{ mensagemSucesso }}</p> }
+  <ol class="step-list" aria-label="Etapas do cadastro">
+    <li [attr.data-state]="empresa ? 'complete' : 'current'"><span>1</span>CNPJ</li>
+    <li [attr.data-state]="empresa?.autorizadaPelaCvm ? 'complete' : empresa ? 'current' : 'pending'"><span>2</span>Empresa e CVM</li>
+    <li [attr.data-state]="endereco ? 'complete' : podeConsultarCep ? 'current' : 'pending'"><span>3</span>Endereço</li>
+    <li [attr.data-state]="podeCadastrar ? 'current' : 'pending'"><span>4</span>Revisão</li>
+  </ol>
+
+  <form [formGroup]="form" (ngSubmit)="adicionarCorretora()" [attr.aria-busy]="consultandoCnpj || consultandoCep || salvando">
+    <fieldset class="flow-step"><legend><span>1</span>Informe o CNPJ</legend>
+      <div class="action-row"><div class="field"><label for="broker-cnpj">CNPJ</label>
+        <input id="broker-cnpj" formControlName="cnpj" inputmode="numeric" autocomplete="off" maxlength="18" (input)="onCnpjInput($event)" aria-describedby="broker-cnpj-help broker-cnpj-error" [attr.aria-invalid]="form.controls.cnpj.invalid && form.controls.cnpj.touched">
+        <small id="broker-cnpj-help" class="muted">Aceita 14 dígitos com ou sem pontuação.</small>
+        @if (form.controls.cnpj.invalid && form.controls.cnpj.touched) { <p id="broker-cnpj-error" class="field-error">Informe um CNPJ válido.</p> }
+      </div><button class="button-primary" type="button" (click)="consultarCnpj()" [disabled]="consultandoCnpj">{{ consultandoCnpj ? 'Consultando…' : 'Consultar CNPJ' }}</button></div>
+      @if (erroCnpj) { <div class="inline-error" role="alert"><p>{{ erroCnpj }}</p><button type="button" class="button-secondary" (click)="consultarCnpj()">Tentar novamente</button></div> }
+    </fieldset>
+
+    @if (empresa) {
+      <section class="flow-step" aria-labelledby="company-title"><h3 id="company-title"><span>2</span>Empresa e CVM</h3>
+        <div class="company-card"><dl><div><dt>Razão social</dt><dd>{{ empresa.razaoSocial }}</dd></div><div><dt>Nome fantasia</dt><dd>{{ empresa.nomeFantasia }}</dd></div><div><dt>Situação empresarial</dt><dd>{{ empresa.situacaoEmpresarial }}</dd></div></dl>
+          @if (empresa.autorizadaPelaCvm) { <p class="authorization" role="status">✓ Instituição autorizada pela CVM</p> }
+          @else { <p class="authorization blocked" role="alert">Cadastro bloqueado: {{ empresa.mensagemCvm || empresa.situacaoCvm }}</p> }
+          <details><summary>Detalhes da consulta CVM</summary><dl><div><dt>Situação</dt><dd>{{ empresa.situacaoCvm }}</dd></div><div><dt>Categoria</dt><dd>{{ empresa.categoriaCvm || 'Não informada' }}</dd></div><div><dt>Consultada em</dt><dd><app-date-time-value [value]="empresa.consultadaEm" /></dd></div></dl></details>
+        </div>
+      </section>
+    }
+
+    @if (podeConsultarCep) {
+      <fieldset class="flow-step"><legend><span>3</span>Valide o endereço</legend>
+        @if (empresa?.cepSugerido) { <div class="cep-suggestion"><div><strong>CEP cadastral sugerido</strong><p>{{ formatCep(empresa?.cepSugerido || '') }}</p></div><button type="button" class="button-secondary" (click)="usarCepSugerido()">Usar este CEP</button></div> }
+        <div class="action-row"><div class="field"><label for="broker-cep">CEP escolhido</label><input #cepInput id="broker-cep" formControlName="cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" (input)="onCepInput($event)" aria-describedby="broker-cep-help broker-cep-error" [attr.aria-invalid]="form.controls.cep.invalid && form.controls.cep.touched"><small id="broker-cep-help" class="muted">Use a sugestão acima ou informe outro CEP.</small>@if (form.controls.cep.invalid && form.controls.cep.touched) { <p id="broker-cep-error" class="field-error">Informe um CEP com 8 dígitos.</p> }</div><button type="button" class="button-primary" (click)="consultarCep()" [disabled]="consultandoCep">{{ consultandoCep ? 'Consultando…' : 'Consultar CEP' }}</button></div>
+        @if (erroCep) { <div class="inline-error" role="alert"><p>{{ erroCep }}</p><button type="button" class="button-secondary" (click)="consultarCep()">Tentar novamente</button></div> }
+        @if (endereco) { <div class="address-card"><dl><div><dt>Logradouro</dt><dd>{{ endereco.logradouro }}</dd></div><div><dt>Bairro</dt><dd>{{ endereco.bairro }}</dd></div><div><dt>Cidade/UF</dt><dd>{{ endereco.cidade }}/{{ endereco.uf }}</dd></div></dl><div class="address-fields"><div class="field"><label for="broker-number">Número</label><input id="broker-number" formControlName="numero" autocomplete="address-line2"></div><div class="field"><label for="broker-complement">Complemento</label><input id="broker-complement" formControlName="complemento" autocomplete="address-line2"></div></div></div> }
+      </fieldset>
+    }
+
+    @if (podeCadastrar) {
+      <section class="flow-step review" aria-labelledby="review-title"><h3 id="review-title"><span>4</span>Revise e confirme</h3>
+        <dl><div><dt>Instituição</dt><dd>{{ empresa?.razaoSocial }}</dd></div><div><dt>CNPJ</dt><dd>{{ formatCnpj(empresa?.cnpj || '') }}</dd></div><div><dt>Autorização</dt><dd>Instituição autorizada pela CVM — {{ empresa?.categoriaCvm }}</dd></div><div><dt>Endereço</dt><dd>{{ endereco?.logradouro }}, {{ form.controls.numero.value || 's/n' }}@if (form.controls.complemento.value) { — {{ form.controls.complemento.value }} }<br>{{ endereco?.bairro }} — {{ endereco?.cidade }}/{{ endereco?.uf }} — {{ formatCep(endereco?.cep || '') }}</dd></div></dl>
+        @if (erroCadastro) { <div class="inline-error" role="alert"><p>{{ erroCadastro }}</p></div> }
+        <button class="button-primary confirm-button" type="submit" [disabled]="salvando">{{ salvando ? 'Cadastrando…' : 'Cadastrar corretora' }}</button>
+      </section>
+    }
   </form>
 </section>
 
+@if (mensagemErro) { <app-error-summary [message]="mensagemErro" [fieldErrors]="errosCampos" [retryable]="false" /> }
 <section class="panel broker-list" aria-labelledby="broker-list-title"><div class="panel-heading"><div><p class="section-kicker">Cadastro</p><h2 id="broker-list-title">Corretoras cadastradas</h2></div></div>
   <app-async-region [state]="facade.state()" label="lista de corretoras" emptyTitle="Nenhuma corretora cadastrada" emptyMessage="Cadastre uma corretora para iniciar a simulação." (retry)="load()">
-    @if (corretoras.length) { <app-responsive-data-list label="Corretoras cadastradas"><table><thead><tr><th scope="col">Instituição</th><th scope="col">CNPJ</th><th scope="col">Localidade</th><th scope="col">Situação empresarial</th><th scope="col">Evidência regulatória</th></tr></thead><tbody>@for (broker of corretoras; track broker.id || broker.cnpj) { <tr><th scope="row"><strong>{{ broker.razaoSocial || broker.nomeFantasia || 'Razão social indisponível' }}</strong>@if (broker.nomeFantasia && broker.nomeFantasia !== broker.razaoSocial) { <small>{{ broker.nomeFantasia }}</small> }</th><td>{{ formatCnpj(broker.cnpj) }}</td><td>{{ broker.cidade || 'Não informada' }}@if (broker.uf) { /{{ broker.uf }} }</td><td><strong>{{ broker.businessRegistration?.status || broker.situacaoCadastral || 'Não informada' }}</strong><small>Fonte: {{ broker.businessRegistration?.source || 'Origem não informada' }}</small></td><td><app-status-badge [label]="evidenceLabel(broker.regulatoryEvidence?.status)" [tone]="evidenceTone(broker.regulatoryEvidence?.status)" [symbol]="broker.regulatoryEvidence?.status === 'VERIFIED' ? '✓' : '?'" />@if (broker.regulatoryEvidence?.category) { <small>{{ broker.regulatoryEvidence?.category }}</small> }<small>Fonte: {{ broker.regulatoryEvidence?.source || 'Origem não informada' }}</small>@if (broker.regulatoryEvidence?.checkedAt) { <small>Consulta: <app-date-time-value [value]="broker.regulatoryEvidence?.checkedAt || null" /></small> }</td></tr> }</tbody></table>
-      <div mobile-cards>@for (broker of corretoras; track broker.id || broker.cnpj) { <article class="mobile-data-card"><header><div><strong>{{ broker.razaoSocial || broker.nomeFantasia || 'Razão social indisponível' }}</strong><div class="muted">{{ formatCnpj(broker.cnpj) }}</div></div><app-status-badge [label]="evidenceLabel(broker.regulatoryEvidence?.status)" [tone]="evidenceTone(broker.regulatoryEvidence?.status)" /></header><dl><div><dt>Localidade</dt><dd>{{ broker.cidade || 'Não informada' }}@if (broker.uf) { /{{ broker.uf }} }</dd></div><div><dt>Situação empresarial</dt><dd>{{ broker.businessRegistration?.status || broker.situacaoCadastral || 'Não informada' }}</dd></div><div><dt>Fonte empresarial</dt><dd>{{ broker.businessRegistration?.source || 'Origem não informada' }}</dd></div><div><dt>Categoria regulatória</dt><dd>{{ broker.regulatoryEvidence?.category || 'Não informada' }}</dd></div><div><dt>Fonte regulatória</dt><dd>{{ broker.regulatoryEvidence?.source || 'Origem não informada' }}</dd></div><div><dt>Referência</dt><dd><app-date-time-value [value]="broker.regulatoryEvidence?.referenceAt || null" /></dd></div></dl>@if (broker.regulatoryEvidence?.reason) { <p class="muted">{{ broker.regulatoryEvidence?.reason }}</p> }</article> }</div>
+    @if (corretoras.length) { <app-responsive-data-list label="Corretoras cadastradas"><table><thead><tr><th scope="col">Instituição</th><th scope="col">CNPJ</th><th scope="col">Localidade</th><th scope="col">Situação empresarial</th><th scope="col">Evidência regulatória</th></tr></thead><tbody>@for (broker of corretoras; track broker.id || broker.cnpj) { <tr><th scope="row"><strong>{{ broker.razaoSocial || broker.nomeFantasia || 'Razão social indisponível' }}</strong>@if (broker.nomeFantasia && broker.nomeFantasia !== broker.razaoSocial) { <small>{{ broker.nomeFantasia }}</small> }</th><td>{{ formatCnpj(broker.cnpj) }}</td><td>{{ broker.cidade || 'Não informada' }}@if (broker.uf) { /{{ broker.uf }} }</td><td>{{ broker.businessRegistration?.status || broker.situacaoCadastral || 'Não informada' }}</td><td><app-status-badge [label]="evidenceLabel(broker.regulatoryEvidence?.status)" [tone]="evidenceTone(broker.regulatoryEvidence?.status)" />@if (broker.regulatoryEvidence?.category) { <small>{{ broker.regulatoryEvidence?.category }}</small> }</td></tr> }</tbody></table>
+      <div mobile-cards>@for (broker of corretoras; track broker.id || broker.cnpj) { <article class="mobile-data-card"><header><div><strong>{{ broker.razaoSocial || broker.nomeFantasia || 'Razão social indisponível' }}</strong><div class="muted">{{ formatCnpj(broker.cnpj) }}</div></div><app-status-badge [label]="evidenceLabel(broker.regulatoryEvidence?.status)" [tone]="evidenceTone(broker.regulatoryEvidence?.status)" /></header><dl><div><dt>Localidade</dt><dd>{{ broker.cidade || 'Não informada' }}@if (broker.uf) { /{{ broker.uf }} }</dd></div><div><dt>Situação empresarial</dt><dd>{{ broker.businessRegistration?.status || broker.situacaoCadastral || 'Não informada' }}</dd></div><div><dt>Categoria regulatória</dt><dd>{{ broker.regulatoryEvidence?.category || 'Não informada' }}</dd></div></dl></article> }</div>
     </app-responsive-data-list> }
   </app-async-region>
 </section>

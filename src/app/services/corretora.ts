@@ -22,7 +22,7 @@ export interface Corretora {
   regulatoryEvidence?: RegulatoryEvidence;
 }
 
-export type RegulatoryStatus = 'NOT_CHECKED' | 'VERIFIED' | 'NOT_FOUND' | 'STALE' | 'UNAVAILABLE';
+export type RegulatoryStatus = 'NOT_CHECKED' | 'VERIFIED' | 'NOT_FOUND' | 'INACTIVE' | 'INCOMPATIBLE' | 'STALE' | 'UNAVAILABLE';
 export interface RegulatoryEvidence {
   status: RegulatoryStatus;
   category: string | null;
@@ -31,6 +31,35 @@ export interface RegulatoryEvidence {
   referenceAt: string | null;
   checkedAt: string | null;
   reason: string | null;
+}
+
+export interface BrokerCnpjPreview {
+  cnpj: string;
+  razaoSocial: string;
+  nomeFantasia: string;
+  situacaoEmpresarial: string;
+  cepSugerido: string | null;
+  cnaeCompativel: boolean;
+  autorizadaPelaCvm: boolean;
+  situacaoCvm: string;
+  categoriaCvm: string | null;
+  consultadaEm: string;
+  mensagemCvm: string | null;
+}
+
+export interface BrokerAddressPreview {
+  cep: string;
+  logradouro: string;
+  bairro: string;
+  cidade: string;
+  uf: string;
+}
+
+export interface BrokerRegistrationRequest {
+  cnpj: string;
+  cep: string;
+  numero?: string;
+  complemento?: string;
 }
 
 @Injectable({
@@ -46,11 +75,15 @@ export class CorretoraService {
     return this.http.get<Corretora[]>(this.apiUrl);
   }
 
-  salvar(cnpjDigitado: string, cepDigitado: string): Observable<Corretora> {
-    const payload = {
-      cnpj: cnpjDigitado,
-      cep: cepDigitado
-    };
+  consultarCnpj(cnpj: string): Observable<BrokerCnpjPreview> {
+    return this.http.post<BrokerCnpjPreview>(`${this.apiUrl}/consultas/cnpj`, { cnpj });
+  }
+
+  consultarCep(cep: string): Observable<BrokerAddressPreview> {
+    return this.http.post<BrokerAddressPreview>(`${this.apiUrl}/consultas/cep`, { cep });
+  }
+
+  salvar(payload: BrokerRegistrationRequest): Observable<Corretora> {
     return this.http.post<Corretora>(this.apiUrl, payload);
   }
 

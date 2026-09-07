@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 const username = process.env['E2E_RUNTIME_ADMIN_USERNAME'] ?? process.env['E2E_ADMIN_USERNAME'];
 const password = process.env['E2E_RUNTIME_ADMIN_PASSWORD'] ?? process.env['E2E_ADMIN_PASSWORD'];
 const screenshotDir = process.env['E2E_SCREENSHOT_DIR'];
-const providerBase = process.env['E2E_PROVIDER_CONTROL_URL'] ?? 'http://127.0.0.1:9090';
+const providerBase = process.env['E2E_PROVIDER_CONTROL_URL'] ?? 'http://127.0.0.1:9190';
 
 async function providerScenario(page: Page, provider: string, scenario: string): Promise<void> {
   const response = await page.request.post(`${providerBase}/control/scenario?provider=${provider}&scenario=${scenario}`);
@@ -81,6 +81,31 @@ test('provedores simulados oferecem matriz controlada sem credenciais ou rede fi
   await page.request.post(`${providerBase}/control/reset`);
 });
 
+test('cadastro progressivo de corretora mantém reflow, teclado e acessibilidade', async ({ page }) => {
+  await page.route(/\/api\/corretoras\/consultas\/cnpj$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    cnpj: '11222333000181', razaoSocial: 'Corretora Teste', nomeFantasia: 'Teste', situacaoEmpresarial: 'ATIVA',
+    cepSugerido: '01001000', cnaeCompativel: true, autorizadaPelaCvm: true, situacaoCvm: 'Em funcionamento normal',
+    categoriaCvm: 'CORRETORAS', consultadaEm: '2026-09-07T15:00:00Z', mensagemCvm: null
+  }) }));
+  await page.route(/\/api\/corretoras\/consultas\/cep$/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+    cep: '01001000', logradouro: 'Praça da Sé', bairro: 'Sé', cidade: 'São Paulo', uf: 'SP'
+  }) }));
+  await login(page, '/corretoras');
+  const cnpj = page.getByLabel('CNPJ'); await cnpj.focus(); await page.keyboard.type('11222333000181');
+  await expect(cnpj).toHaveValue('11.222.333/0001-81');
+  const consultCnpj = page.getByRole('button', { name: 'Consultar CNPJ' }); await consultCnpj.focus();
+  await expect(consultCnpj).toBeFocused();
+  const cnpjResponse = page.waitForResponse(response => response.url().includes('/corretoras/consultas/cnpj'));
+  await consultCnpj.click(); expect((await cnpjResponse).status()).toBe(200);
+  await expect(page.getByText('Instituição autorizada pela CVM').first()).toBeVisible();
+  const useCep = page.getByRole('button', { name: 'Usar este CEP' }); await useCep.focus(); await expect(useCep).toBeFocused(); await useCep.click();
+  const consultCep = page.getByRole('button', { name: 'Consultar CEP' }); await consultCep.focus(); await expect(consultCep).toBeFocused(); await consultCep.click();
+  await expect(page.getByRole('heading', { name: /Revise e confirme/ })).toBeVisible();
+  for (const viewport of [{ width: 1440, height: 1024 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 568 }]) {
+    await audit(page, 'broker-registration-review', viewport.width, viewport.height);
+  }
+});
+
 test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, context }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: /Veja o que você tem/ })).toBeVisible();
@@ -94,7 +119,13 @@ test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, c
   await audit(page, 'dashboard-empty', 1440, 1024);
   await page.keyboard.press('Tab'); await expect(page.getByRole('link', { name: 'Pular para o conteúdo' })).toBeFocused();
 
-  await page.goto('/corretoras'); await page.getByLabel('CNPJ').fill('11.222.333/0001-81'); await page.getByLabel('CEP').fill('01001000');
+  await page.goto('/corretoras'); await page.getByLabel('CNPJ').fill('11.222.333/0001-81');
+  await page.getByRole('button', { name: 'Consultar CNPJ' }).click();
+  await expect(page.getByText('Instituição autorizada pela CVM').first()).toBeVisible();
+  await expect(page.getByLabel('CEP escolhido')).toHaveValue('');
+  await page.getByRole('button', { name: 'Usar este CEP' }).click();
+  await page.getByRole('button', { name: 'Consultar CEP' }).click();
+  await expect(page.getByText('Praça da Sé').first()).toBeVisible();
   const brokerRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/corretoras' && request.method() === 'POST');
   await page.getByRole('button', { name: 'Cadastrar corretora' }).click(); expect((await brokerRequest).headers()['x-csrf-token']).toBeTruthy(); await expect(page.getByText('Corretora Teste').first()).toBeVisible();
 
