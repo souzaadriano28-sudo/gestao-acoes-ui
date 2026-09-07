@@ -1,0 +1,20 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, Subject, throwError } from 'rxjs';
+import { OperacoesComponent } from './operacoes';
+
+describe('OperacoesComponent', () => {
+  let portfolio: any; let operations: any; let assets: any; let brokers: any; let changeDetector: any; let component: OperacoesComponent;
+  beforeEach(() => {
+    portfolio = { dashboard: vi.fn(() => of({})), detailedPositions: vi.fn(() => of({ items: [], page: 0, size: 100, totalElements: 0, totalPages: 0 })), movements: vi.fn(() => of({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 })) };
+    operations = { comprar: vi.fn(() => of(void 0)), vender: vi.fn(() => of(void 0)) }; assets = { listar: vi.fn(() => of([])) }; brokers = { listar: vi.fn(() => of([])) };
+    changeDetector = { markForCheck: vi.fn() };
+    component = new OperacoesComponent(portfolio, operations, assets, brokers, changeDetector); component.assets = [{ id: 1, ticker: 'PETR4', mercado: 'BRASIL' }]; component.brokers = [{ id: 7, cnpj: '11222333000181', razaoSocial: 'Corretora sintética' }]; component.form.setValue({ type: 'COMPRA', assetId: 1, brokerId: 7, quantity: 10 }); component.review();
+  });
+  it('envia somente ticker, mercado, quantidade inteira e corretora uma vez', () => { const pending = new Subject<void>(); operations.comprar.mockReturnValue(pending); component.confirm(); component.confirm(); expect(operations.comprar).toHaveBeenCalledTimes(1); expect(operations.comprar).toHaveBeenCalledWith({ ticker: 'PETR4', mercado: 'BRASIL', qtd: 10, corretoraId: 7 }); expect(portfolio.dashboard).not.toHaveBeenCalled(); pending.error(new HttpErrorResponse({ status: 422, error: { message: 'Recusada', fieldErrors: [] } })); });
+  it('não altera leituras antes da confirmação e relê após sucesso', () => { const pending = new Subject<void>(); operations.comprar.mockReturnValue(pending); component.confirm(); expect(portfolio.dashboard).not.toHaveBeenCalled(); pending.next(); pending.complete(); expect(portfolio.dashboard).toHaveBeenCalledTimes(1); expect(portfolio.detailedPositions).toHaveBeenCalledTimes(1); expect(component.message).toContain('leituras confirmadas'); });
+  it('preserva campos e exige reconciliação em resultado desconhecido', () => { operations.comprar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 }))); component.confirm(); expect(component.outcome).toBe('unknown'); expect(component.mustReconcile).toBe(true); expect(component.form.getRawValue().quantity).toBe(10); component.confirm(); expect(operations.comprar).toHaveBeenCalledTimes(1); });
+  it('encerra espera de rede por timeout sem repetir a mutação', () => { vi.useFakeTimers(); const pending = new Subject<void>(); operations.comprar.mockReturnValue(pending); component.confirm(); vi.advanceTimersByTime(10_001); expect(component.outcome).toBe('unknown'); expect(component.pending).toBe(false); expect(operations.comprar).toHaveBeenCalledTimes(1); vi.useRealTimers(); });
+  it('distingue conflito, atualiza a vista zoneless e não reenvia automaticamente', () => { operations.comprar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'CONCURRENT_OPERATION', message: 'Conflito' } }))); component.confirm(); expect(component.outcome).toBe('conflict'); expect(component.message).toContain('Recarregue'); expect(changeDetector.markForCheck).toHaveBeenCalled(); expect(operations.comprar).toHaveBeenCalledTimes(1); });
+  it('recusa quantidade fracionária sem request', () => { component.cancelReview(); component.form.controls.quantity.setValue(1.5); component.review(); expect(component.reviewing).toBe(false); expect(operations.comprar).not.toHaveBeenCalled(); });
+  it('reconcilia leituras sem repetir a mutação', () => { component.mustReconcile = true; component.reconcile(); expect(portfolio.dashboard).toHaveBeenCalledTimes(1); expect(portfolio.movements).toHaveBeenCalledTimes(2); expect(operations.comprar).not.toHaveBeenCalled(); expect(component.mustReconcile).toBe(false); });
+});

@@ -1,63 +1,18 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { AcaoComponent } from './acao';
 
 describe('AcaoComponent', () => {
-  let fixture: ComponentFixture<AcaoComponent>;
-  let http: HttpTestingController;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [AcaoComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()]
-    }).compileComponents();
-    fixture = TestBed.createComponent(AcaoComponent);
-    http = TestBed.inject(HttpTestingController);
-  });
-
+  let fixture: ComponentFixture<AcaoComponent>; let http: HttpTestingController;
+  beforeEach(async () => { await TestBed.configureTestingModule({ imports: [AcaoComponent], providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] }).compileComponents(); fixture = TestBed.createComponent(AcaoComponent); http = TestBed.inject(HttpTestingController); });
   afterEach(() => http.verify());
-
-  it('não envia cadastro duas vezes enquanto está pendente', () => {
-    fixture.detectChanges();
-    http.expectOne('/api/acoes').flush([]);
-    const component = fixture.componentInstance;
-    component.tickerDigitado = 'PETR4';
-    component.mercadoSelecionado = 'BRASIL';
-    component.adicionarAcao();
-    component.adicionarAcao();
-    const requests = http.match('/api/acoes');
-    expect(requests.length).toBe(1);
-    requests[0].flush({ ticker: 'PETR4', mercado: 'BRASIL' }, { status: 201, statusText: 'Created' });
-    http.expectOne('/api/acoes').flush([]);
-  });
-
-  it('bloqueia atualização repetida e libera o ativo após erro', () => {
-    fixture.detectChanges();
-    http.expectOne('/api/acoes').flush([{ id: 7, ticker: 'PETR4', mercado: 'BRASIL' }]);
-    const component = fixture.componentInstance;
-
-    component.atualizarPreco(7);
-    component.atualizarPreco(7);
-    const requests = http.match('/api/acoes/7/atualizar-cotacao');
-    expect(requests.length).toBe(1);
-    expect(component.atualizando.has(7)).toBe(true);
-    requests[0].flush({ message: 'provedor indisponível', fieldErrors: [] }, { status: 503, statusText: 'Unavailable' });
-    expect(component.atualizando.has(7)).toBe(false);
-    expect(component.mensagemErro).toBe('provedor indisponível');
-  });
-
-  it('distingue falha inicial e preserva lista antiga como desatualizada', () => {
-    fixture.detectChanges();
-    http.expectOne('/api/acoes').flush({}, { status: 503, statusText: 'Unavailable' });
-    const component = fixture.componentInstance;
-    expect(component.cargaFalhou).toBe(true);
-    expect(component.dadosDesatualizados).toBe(false);
-
-    component.acoes = [{ id: 1, ticker: 'PETR4', mercado: 'BRASIL' }];
-    component.carregarAcoes();
-    http.expectOne('/api/acoes').flush({}, { status: 503, statusText: 'Unavailable' });
-    expect(component.acoes.length).toBe(1);
-    expect(component.dadosDesatualizados).toBe(true);
-  });
+  it('renderiza loading, vazio e mantém foco operável', () => { fixture.detectChanges(); expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).toBeTruthy(); http.expectOne('/api/acoes').flush([]); fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Nenhum ativo cadastrado'); const input = fixture.nativeElement.querySelector('#asset-ticker') as HTMLInputElement; input.focus(); expect(document.activeElement).toBe(input); });
+  it('renderiza erro completo com repetição focável', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush({ message: 'Catálogo indisponível' }, { status: 503, statusText: 'Unavailable' }); fixture.detectChanges(); const retry = fixture.nativeElement.querySelector('app-error-summary button') as HTMLButtonElement; expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy(); retry.focus(); expect(document.activeElement).toBe(retry); });
+  it('cadastra ticker canônico uma vez e relê a lista', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush([]); const component = fixture.componentInstance; component.form.setValue({ ticker: 'petr4', mercado: 'BRASIL' }); component.adicionarAcao(); component.adicionarAcao(); const requests = http.match('/api/acoes'); expect(requests).toHaveLength(1); expect(requests[0].request.body).toEqual({ ticker: 'PETR4', mercado: 'BRASIL' }); requests[0].flush({ id: 1, ticker: 'PETR4', mercado: 'BRASIL' }); http.expectOne('/api/acoes').flush([]); });
+  it('recusa ticker incompatível com o mercado sem request', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush([]); fixture.componentInstance.form.setValue({ ticker: 'AAPL', mercado: 'BRASIL' }); fixture.componentInstance.adicionarAcao(); expect(fixture.componentInstance.form.controls.ticker.hasError('canonical')).toBe(true); http.expectNone(request => request.method === 'POST'); });
+  it('mantém lista anterior stale e não duplica atualização', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush([{ id: 7, ticker: 'PETR4', mercado: 'BRASIL', moeda: 'BRL', cotacaoAtual: 10 }]); const component = fixture.componentInstance; component.load(); http.expectOne('/api/acoes').flush({}, { status: 503, statusText: 'Unavailable' }); expect(component.facade.state().status).toBe('stale'); component.atualizarPreco(7); component.atualizarPreco(7); expect(http.match('/api/acoes/7/atualizar-cotacao')).toHaveLength(1); });
+  it('expõe origem não informada para contrato legado', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush([{ id: 1, ticker: 'AAPL', mercado: 'AMERICANO', moeda: 'USD', cotacaoAtual: 20, dataHoraCotacao: '2026-09-06T12:00:00' }]); fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Origem não informada'); expect(fixture.nativeElement.textContent).toContain('fuso não fornecido'); });
+  it('expõe fonte, referência e coleta reais sem inventar freshness', () => { fixture.detectChanges(); http.expectOne('/api/acoes').flush([{ id: 1, ticker: 'AAPL', mercado: 'AMERICANO', moeda: 'USD', cotacaoAtual: 20, dataHoraCotacao: '2026-09-06T12:00:00', quoteProvider: 'TWELVE_DATA', quoteSourceType: 'MARKET_DATA_API', quoteReferenceAt: '2026-09-06T15:00:00Z', quoteFetchedAt: '2026-09-06T15:01:00Z' }]); fixture.detectChanges(); const text = fixture.nativeElement.textContent as string; expect(text).toContain('TWELVE_DATA'); expect(text).toContain('MARKET_DATA_API'); expect(text).toContain('Freshness não informada por este contrato'); expect(text).not.toContain('Origem não informada'); });
 });

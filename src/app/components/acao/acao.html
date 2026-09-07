@@ -1,72 +1,22 @@
-<div style="max-width: 800px; margin-top: 20px;">
-  <h2 style="color: #333;">📊 Catálogo de Ações</h2>
+<app-page-header title="Ações" eyebrow="Catálogo de ativos" description="Cadastre ativos para a simulação e atualize suas cotações com feedback rastreável.">
+  <button type="button" class="button-secondary" (click)="load()" [disabled]="facade.state().status === 'loading'">Atualizar lista</button>
+</app-page-header>
 
-  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-    <h4 style="margin-top: 0;">Cadastrar Novo Ativo</h4>
+<section class="panel form-panel" aria-labelledby="asset-form-title"><div class="panel-heading"><div><h2 id="asset-form-title">Cadastrar ativo</h2><p>Use o ticker canônico do mercado selecionado. O preço nunca é informado manualmente.</p></div></div>
+  @if (mensagemErro) { <app-error-summary [message]="mensagemErro" [fieldErrors]="errosCampos" /> }
+  @if (mensagemSucesso) { <p class="status-message" data-tone="success" aria-live="polite">{{ mensagemSucesso }}</p> }
+  <form [formGroup]="form" (ngSubmit)="adicionarAcao()" class="toolbar" [attr.aria-busy]="salvando">
+    <div class="field"><label for="asset-ticker">Ticker</label><input id="asset-ticker" formControlName="ticker" autocomplete="off" autocapitalize="characters" [attr.aria-invalid]="form.controls.ticker.invalid && form.controls.ticker.touched" aria-describedby="asset-ticker-help asset-ticker-error"><small id="asset-ticker-help" class="muted">Ex.: PETR4 ou AAPL</small>@if (form.controls.ticker.hasError('canonical')) { <p id="asset-ticker-error" class="field-error">Informe um ticker válido para o mercado selecionado.</p> } @else if (errosCampos['ticker']) { <p id="asset-ticker-error" class="field-error">{{ errosCampos['ticker'] }}</p> }</div>
+    <div class="field"><label for="asset-market">Mercado</label><select id="asset-market" formControlName="mercado" [attr.aria-invalid]="!!errosCampos['mercado']" aria-describedby="asset-market-error"><option value="BRASIL">Brasil (B3)</option><option value="AMERICANO">Americano</option></select>@if (errosCampos['mercado']) { <p id="asset-market-error" class="field-error">{{ errosCampos['mercado'] }}</p> }</div>
+    <button class="button-primary" type="submit" [disabled]="salvando">{{ salvando ? 'Consultando…' : 'Cadastrar ativo' }}</button>
+  </form>
+</section>
 
-    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-      <input
-        type="text"
-        [(ngModel)]="tickerDigitado"
-        placeholder="Ticker (Ex: PETR4, AAPL)"
-        style="padding: 8px; flex: 1; border: 1px solid #ccc; border-radius: 4px; text-transform: uppercase;"
-      >
-      <small *ngIf="errosCampos['ticker']" style="color: #721c24;">{{ errosCampos['ticker'] }}</small>
-      <select
-        [(ngModel)]="mercadoSelecionado"
-        style="padding: 8px; width: 180px; border: 1px solid #ccc; border-radius: 4px;">
-        <option value="BRASIL">Nacional (B3)</option>
-        <option value="AMERICANO">Internacional</option>
-      </select>
-      <small *ngIf="errosCampos['mercado']" style="color: #721c24;">{{ errosCampos['mercado'] }}</small>
-      <button
-        (click)="adicionarAcao()"
-        [disabled]="salvando"
-        style="padding: 9px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-        {{ salvando ? 'Buscando...' : '+ Buscar Ativo' }}
-      </button>
-    </div>
-
-    <div *ngIf="mensagemErro" style="padding: 10px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; border-radius: 4px; font-weight: bold;">
-      ⚠️ {{ mensagemErro }}
-    </div>
-  </div>
-
-  <h4 style="margin-top: 30px; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #444;">
-    Ativos Monitorados
-  </h4>
-
-  <div style="display: grid; gap: 15px;">
-    <div *ngFor="let acao of acoes" style="padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center;">
-
-      <div>
-        <strong style="font-size: 1.2em; color: #0056b3;">{{ acao.ticker }}</strong>
-        <span style="background-color: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; color: #555; margin-left: 8px;">
-          {{ acao.mercado }}
-        </span>
-        <div style="color: #666; margin-top: 5px;">{{ acao.nomeEmpresa || 'Empresa não detalhada' }}</div>
-        <small style="color: #999;">Atualizado em: {{ acao.dataHoraCotacao | date:'dd/MM/yyyy HH:mm:ss' }}</small>
-      </div>
-
-      <div style="text-align: right;">
-        <div style="font-size: 1.4em; font-weight: bold; color: #28a745;">
-          {{ acao.moeda }} {{ acao.cotacaoAtual | number:'1.2-2' }}
-        </div>
-        <button
-          (click)="atualizarPreco(acao.id)"
-          [disabled]="acao.id !== undefined && atualizando.has(acao.id)"
-          style="margin-top: 8px; padding: 6px 12px; background-color: #ffc107; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; font-weight: bold;">
-          {{ acao.id !== undefined && atualizando.has(acao.id) ? 'Atualizando...' : '🔄 Atualizar Preço' }}
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <p *ngIf="acoes.length === 0 && !carregando && !cargaFalhou" style="color: #777; font-style: italic; margin-top: 15px;">
-    Nenhum ativo cadastrado no catálogo.
-  </p>
-  <p *ngIf="carregando">Carregando ativos...</p>
-  <p *ngIf="dadosDesatualizados" style="color: #856404;">A lista exibida pode estar desatualizada.</p>
-  <button *ngIf="cargaFalhou" type="button" (click)="carregarAcoes()">Tentar novamente</button>
-</div>
+<section class="catalog" aria-labelledby="asset-list-title"><div class="panel-heading"><div><h2 id="asset-list-title">Ativos monitorados</h2><p>Cotações legadas sem proveniência aparecem como origem não informada.</p></div><div class="field search"><label for="asset-search">Buscar</label><input id="asset-search" type="search" [formControl]="search"></div></div>
+  <app-async-region [state]="facade.state()" label="catálogo de ações" emptyTitle="Nenhum ativo cadastrado" emptyMessage="Cadastre o primeiro ativo para habilitar operações simuladas." (retry)="load()">
+    @if (acoes.length && !visibleActions.length) { <app-empty-state title="Nenhum ativo corresponde à busca" message="Altere o texto de busca para ver o catálogo confirmado." /> }
+    @if (visibleActions.length) { <app-responsive-data-list label="Ativos monitorados"><table><thead><tr><th scope="col">Ativo</th><th scope="col">Mercado</th><th scope="col">Cotação</th><th scope="col">Referência</th><th scope="col">Origem, coleta e freshness</th><th scope="col">Ação</th></tr></thead><tbody>@for (action of visibleActions; track action.id || action.ticker) { <tr><th scope="row"><strong>{{ action.ticker }}</strong><small>{{ action.nomeEmpresa || 'Empresa não detalhada' }}</small></th><td>{{ action.mercado }}</td><td>{{ quoteText(action) }}</td><td><app-date-time-value [value]="action.quoteReferenceAt || action.dataHoraCotacao || null" /></td><td>@if (action.quoteProvider) { <app-status-badge [label]="action.quoteProvider" tone="positive" symbol="✓" /><small>Fonte: {{ action.quoteSourceType || 'Tipo não informado' }}</small><small>Coleta: <app-date-time-value [value]="action.quoteFetchedAt || null" /></small><small>Freshness não informada por este contrato.</small> } @else { <app-status-badge label="Origem não informada" tone="neutral" symbol="?" /><small>Coleta e freshness indisponíveis no contrato legado.</small> }</td><td><button class="button-secondary" type="button" (click)="atualizarPreco(action.id)" [disabled]="!action.id || atualizando.has(action.id!)">{{ action.id && atualizando.has(action.id) ? 'Atualizando…' : 'Atualizar cotação' }}</button></td></tr> }</tbody></table>
+      <div mobile-cards>@for (action of visibleActions; track action.id || action.ticker) { <article class="mobile-data-card"><header><div><strong>{{ action.ticker }}</strong><div class="muted">{{ action.nomeEmpresa || 'Empresa não detalhada' }}</div></div><span>{{ quoteText(action) }}</span></header><dl><div><dt>Mercado</dt><dd>{{ action.mercado }}</dd></div><div><dt>Moeda</dt><dd>{{ action.moeda || 'Indisponível' }}</dd></div><div><dt>Referência</dt><dd><app-date-time-value [value]="action.quoteReferenceAt || action.dataHoraCotacao || null" /></dd></div><div><dt>Origem</dt><dd>{{ action.quoteProvider || 'Origem não informada' }}</dd></div><div><dt>Tipo de fonte</dt><dd>{{ action.quoteSourceType || 'Indisponível' }}</dd></div><div><dt>Coleta</dt><dd><app-date-time-value [value]="action.quoteFetchedAt || null" /></dd></div></dl><p class="muted">{{ action.quoteProvider ? 'Freshness não informada por este contrato.' : 'Coleta e freshness indisponíveis no contrato legado.' }}</p><button class="button-secondary" type="button" (click)="atualizarPreco(action.id)" [disabled]="!action.id || atualizando.has(action.id!)">{{ action.id && atualizando.has(action.id) ? 'Atualizando…' : 'Atualizar cotação' }}</button></article> }</div>
+    </app-responsive-data-list> }
+  </app-async-region>
+</section>

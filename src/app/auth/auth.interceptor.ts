@@ -21,7 +21,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   }));
 };
 export function safeReturnUrl(value: string | null | undefined): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('://')) return '/carteira';
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('://')) return '/dashboard';
   const path = value.split(/[?#]/, 1)[0];
-  return ['/carteira', '/corretoras', '/acoes'].includes(path) ? value : '/carteira';
+  return ['/dashboard', '/carteira', '/corretoras', '/acoes', '/operacoes'].includes(path) ? value : '/dashboard';
 }

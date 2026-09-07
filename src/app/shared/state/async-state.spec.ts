@@ -1,0 +1,10 @@
+import { Subject } from 'rxjs';
+import { asyncState, AsyncReadFacade, hasUsableData } from './async-state';
+
+describe('asyncState', () => {
+  it('produz estados discriminados sem combinações simultâneas', () => { const states = [asyncState.idle<number[]>(), asyncState.loading<number[]>(), asyncState.empty<number[]>([]), asyncState.error<number[]>('Falhou'), asyncState.unavailable<number[]>('Sem fonte')]; expect(states.map(state => state.status)).toEqual(['idle', 'loading', 'empty', 'error', 'unavailable']); });
+  it('preserva dados confirmados somente em success, empty e stale', () => { expect(hasUsableData(asyncState.success([1]))).toBe(true); expect(hasUsableData(asyncState.empty<number[]>([]))).toBe(true); expect(hasUsableData(asyncState.stale([1], 'Atualização falhou'))).toBe(true); expect(hasUsableData(asyncState.error<number[]>('Falhou'))).toBe(false); });
+  it('não contém política de repetição automática de mutações', () => { expect(Object.keys(asyncState).sort()).toEqual(['empty', 'error', 'idle', 'loading', 'stale', 'success', 'unavailable']); });
+  it('facade cancela leitura anterior e preserva dados como stale', () => { const first = new Subject<number[]>(); const second = new Subject<number[]>(); const facade = new AsyncReadFacade<number[]>(); facade.load(() => first, value => value.length === 0); first.next([1]); expect(facade.state().status).toBe('success'); facade.load(() => second, value => value.length === 0); expect(facade.state()).toEqual({ status: 'loading', previous: [1] }); second.error({ error: { message: 'Fonte indisponível' } }); expect(facade.state()).toEqual({ status: 'stale', data: [1], message: 'Fonte indisponível' }); });
+  it('cancela request anterior ao iniciar nova leitura', () => { const first = new Subject<number[]>(); const second = new Subject<number[]>(); const facade = new AsyncReadFacade<number[]>(); facade.load(() => first); expect(first.observed).toBe(true); facade.load(() => second); expect(first.observed).toBe(false); expect(second.observed).toBe(true); });
+});

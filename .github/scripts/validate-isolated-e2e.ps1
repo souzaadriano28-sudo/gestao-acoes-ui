@@ -38,6 +38,8 @@ $expectedProviderUrls = [ordered]@{
     INTEGRATIONS_TWELVEDATA_URL = 'http://127.0.0.1:9090/twelvedata'
     INTEGRATIONS_BRASILAPI_URL = 'http://127.0.0.1:9090/brasilapi/cnpj/v1'
     INTEGRATIONS_VIACEP_URL = 'http://127.0.0.1:9090/viacep'
+    INTEGRATIONS_BCB_PTAX_URL = 'http://127.0.0.1:9090/bcb'
+    INTEGRATIONS_CVM_REGISTRY_URL = 'http://127.0.0.1:9090/cvm'
 }
 
 foreach ($entry in $expectedProviderUrls.GetEnumerator()) {
