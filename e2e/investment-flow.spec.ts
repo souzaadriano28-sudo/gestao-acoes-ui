@@ -20,9 +20,32 @@ async function login(page: Page, returnUrl = '/dashboard'): Promise<void> {
 
 async function audit(page: Page, name: string, width: number, height: number): Promise<void> {
   await page.setViewportSize({ width, height }); await page.waitForTimeout(80);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${name} ${width}px sem overflow`).toBe(true);
+  const accountName = page.locator('.account > span');
+  if (await accountName.count()) await accountName.evaluate(element => { element.textContent = 'Conta de demonstração'; });
+  const layout = await page.evaluate(() => ({ fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth,
+    offenders: [...document.querySelectorAll<HTMLElement>('body *')].filter(element => element.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+      .slice(0, 8).map(element => ({ tag: element.tagName, className: element.className, right: element.getBoundingClientRect().right, width: element.getBoundingClientRect().width })) }));
+  expect(layout.fits, `${name} ${width}px sem overflow: ${JSON.stringify(layout)}`).toBe(true);
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations, `${name} ${width}px axe`).toEqual([]);
   if (screenshotDir) await page.screenshot({ path: `${screenshotDir}/${name}-${width}x${height}.png`, fullPage: true });
+}
+
+async function assertMobileNavigationClear(page: Page): Promise<void> {
+  const navigation = page.getByRole('navigation', { name: 'Navegação principal móvel' });
+  const controls = page.locator('main a, main button, main input, main select, main textarea, main [tabindex]');
+  for (let index = 0; index < await controls.count(); index++) {
+    const control = controls.nth(index);
+    if (!await control.isVisible()) continue;
+    await control.scrollIntoViewIfNeeded();
+    await control.focus();
+    await page.waitForTimeout(20);
+    const controlBox = await control.boundingBox();
+    const navigationBox = await navigation.boundingBox();
+    if (!controlBox || !navigationBox) continue;
+    const overlaps = controlBox.y < navigationBox.y + navigationBox.height && controlBox.y + controlBox.height > navigationBox.y;
+    expect(overlaps, `navegação não cobre ${await control.getAttribute('id') ?? await control.textContent()}`).toBe(false);
+  }
 }
 
 async function registerOperation(page: Page, type: 'COMPRA' | 'VENDA', asset: string, quantity: string): Promise<void> {
@@ -59,8 +82,13 @@ test('provedores simulados oferecem matriz controlada sem credenciais ou rede fi
 });
 
 test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, context }) => {
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: /Veja o que você tem/ })).toBeVisible();
+  await audit(page, 'login', 1440, 1024);
+  await audit(page, 'login', 390, 844);
+  await audit(page, 'login', 320, 568);
   await page.setViewportSize({ width: 1440, height: 1024 }); await login(page);
-  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sua carteira' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nenhuma posição ativa' })).toBeVisible();
   await expect(page.getByText('Dados parciais')).toHaveCount(0);
   await audit(page, 'dashboard-empty', 1440, 1024);
@@ -86,6 +114,9 @@ test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, c
   const history = await page.request.get('/api/carteira/movimentacoes?size=20'); expect(history.ok()).toBe(true); expect((await history.json()).items).toHaveLength(5);
   await page.goto('/dashboard');
   await expect(page.getByText('R$ 1.050,00').first()).toBeVisible();
+  const quality = page.locator('details.quality');
+  await expect(quality).not.toHaveAttribute('open', '');
+  await quality.locator('summary').click();
   await expect(page.getByText('TWELVE_DATA')).toBeVisible();
   await expect(page.getByText('BANCO_CENTRAL_DO_BRASIL_PTAX')).toBeVisible();
 
@@ -94,8 +125,9 @@ test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, c
   for (const route of routes) { await page.goto(`/${route}`); await expect(page.locator('h1')).toBeVisible(); for (const viewport of viewports) await audit(page, route, viewport.width, viewport.height); }
   await page.goto('/rota-inexistente'); await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible(); await audit(page, '404', 320, 568);
 
-  await page.goto('/dashboard'); await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible(); await context.clearCookies();
+  await page.goto('/dashboard'); await expect(page.getByRole('heading', { name: 'Sua carteira' })).toBeVisible(); await context.clearCookies();
   await page.getByRole('button', { name: 'Atualizar dados' }).click(); await expect(page).toHaveURL(/\/login/); await expect(page.getByText('Sua sessão expirou. Entre novamente para continuar.')).toBeVisible();
+  await audit(page, 'login-session-expired', 390, 844);
   await login(page);
   const logoutResponse = page.waitForResponse(response => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/auth/logout');
@@ -109,13 +141,14 @@ test('jornada real autenticada e responsiva do Atlas Carteira', async ({ page, c
 test('jornada móvel preserva navegação, cartões, operação e conteúdo em 390 e 320 px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 }); await login(page);
   await expect(page.getByRole('navigation', { name: 'Navegação principal móvel' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Navegação principal móvel' }).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('navigation', { name: 'Navegação principal móvel' }).getByRole('link', { name: 'Visão geral' })).toHaveAttribute('aria-current', 'page');
   for (const width of [390, 320]) {
     const height = width === 390 ? 844 : 568;
     for (const route of ['dashboard', 'carteira', 'acoes', 'corretoras', 'operacoes']) {
       await page.goto(`/${route}`); await audit(page, `mobile-${route}`, width, height);
       await expect(page.locator('main')).toBeVisible();
       if (route !== 'dashboard') await expect(page.locator('.mobile-data-card').first()).toBeVisible();
+      await assertMobileNavigationClear(page);
     }
   }
   await page.setViewportSize({ width: 390, height: 844 }); await page.goto('/operacoes');
@@ -125,6 +158,8 @@ test('jornada móvel preserva navegação, cartões, operação e conteúdo em 3
   expect(after.totalElements).toBe(before.totalElements + 1);
   await expect(page.locator('.mobile-data-card').filter({ hasText: 'AAPL' }).first()).toBeVisible();
   await audit(page, 'mobile-operation-confirmed', 390, 844);
+  await page.addStyleTag({ content: '.mobile-navigation{padding-bottom:16px!important;min-height:calc(var(--mobile-nav-height) + 16px)!important}.workspace{padding-bottom:calc(var(--mobile-nav-height) + 16px)!important}' });
+  await assertMobileNavigationClear(page);
 });
 
 test('estados parcial e stale preservam dados confirmados', async ({ page }) => {
@@ -233,7 +268,7 @@ test('erros, zoom, espaçamento de texto, alvos e cores forçadas mantêm reflow
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; }); await page.waitForTimeout(60);
-    const zoomLayout = await page.evaluate(() => ({ fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth, offenders: [...document.querySelectorAll<HTMLElement>('body *')].filter(element => { const box = element.getBoundingClientRect(); return box.right > document.documentElement.clientWidth + 1; }).sort((left, right) => right.getBoundingClientRect().right - left.getBoundingClientRect().right).slice(0, 12).map(element => ({ tag: element.tagName, className: element.className, text: element.textContent?.trim().slice(0, 80), left: element.getBoundingClientRect().left, width: element.getBoundingClientRect().width, right: element.getBoundingClientRect().right })) }));
+    const zoomLayout = await page.evaluate(() => ({ fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth, workspace: document.querySelector<HTMLElement>('.workspace')?.getBoundingClientRect().toJSON(), main: document.querySelector<HTMLElement>('main')?.getBoundingClientRect().toJSON(), offenders: [...document.querySelectorAll<HTMLElement>('body *')].filter(element => { const box = element.getBoundingClientRect(); return box.right > document.documentElement.clientWidth + 1; }).sort((left, right) => right.getBoundingClientRect().right - left.getBoundingClientRect().right).slice(0, 12).map(element => ({ tag: element.tagName, className: element.className, text: element.textContent?.trim().slice(0, 80), left: element.getBoundingClientRect().left, width: element.getBoundingClientRect().width, right: element.getBoundingClientRect().right })) }));
     expect(zoomLayout.fits, `zoom 200% em ${viewport.width}px: ${JSON.stringify(zoomLayout)}`).toBe(true);
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
   }

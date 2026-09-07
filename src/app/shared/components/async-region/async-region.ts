@@ -19,7 +19,7 @@ import { PartialDataStateComponent } from '../partial-data-state/partial-data-st
     }
     @if (showContent) { <ng-content /> }
   </section>`,
-  styles: [':host{display:block}section{display:grid;gap:var(--space-3)}'],
+  styles: [':host{display:block;min-width:0;max-width:100%}section{display:grid;min-width:0;max-width:100%;gap:var(--space-3)}'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AsyncRegionComponent<T = unknown> {

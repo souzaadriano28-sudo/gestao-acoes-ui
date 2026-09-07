@@ -3,8 +3,9 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { finalize } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { AuthStore } from '../auth.store';
+import { AtlasIconComponent } from '../../shared/components/atlas-icon/atlas-icon';
 
-@Component({selector:'app-protected-layout',standalone:true,imports:[RouterOutlet,RouterLink,RouterLinkActive],templateUrl:'./protected-layout.html',styleUrl:'./protected-layout.css'})
+@Component({selector:'app-protected-layout',standalone:true,imports:[RouterOutlet,RouterLink,RouterLinkActive,AtlasIconComponent],templateUrl:'./protected-layout.html',styleUrl:'./protected-layout.css'})
 export class ProtectedLayoutComponent {
   @ViewChild('content') private content?: ElementRef<HTMLElement>;
   loggingOut=false;

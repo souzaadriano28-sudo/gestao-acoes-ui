@@ -32,6 +32,7 @@ export class CarteiraComponent implements OnInit, OnDestroy {
   });
   brokers: Corretora[] = [];
   brokerLoadFailed = false;
+  filtersExpanded = false;
   page = 0;
   readonly size = 20;
 
@@ -61,9 +62,11 @@ export class CarteiraComponent implements OnInit, OnDestroy {
   }
   applyFilters(): void { this.page = 0; this.load(); }
   clearFilters(): void { this.filters.reset({ search: '', market: '', brokerId: '', sort: 'ticker' }); this.applyFilters(); }
+  toggleFilters(): void { this.filtersExpanded = !this.filtersExpanded; }
   changePage(page: number): void { this.page = page; this.load(); }
   private loadBrokers(): void { this.brokerService.listar().subscribe({ next: value => { this.brokers = value; this.brokerLoadFailed = false; }, error: () => this.brokerLoadFailed = true }); }
   get response(): PageResponse<DetailedPosition> | undefined { return stateData(this.facade.state()); }
+  get activeFilterCount(): number { const value = this.filters.getRawValue(); return [value.search, value.market, value.brokerId, value.sort !== 'ticker'].filter(Boolean).length; }
   get visiblePositions(): DetailedPosition[] {
     const value = this.filters.getRawValue();
     const term = value.search.trim().toLocaleUpperCase('pt-BR');
