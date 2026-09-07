@@ -37,6 +37,13 @@ const server = http.createServer((request, response) => {
       localidade: 'São Paulo', uf: 'SP', erro: false
     });
   }
+  if (url.pathname.startsWith('/bcb/CotacaoDolarPeriodo')) {
+    return json(response, 200, { value: [{
+      cotacaoVenda: 5.25,
+      dataHoraCotacao: '2026-09-05 13:00:00.000',
+      tipoBoletim: 'Fechamento PTAX'
+    }] });
+  }
   return json(response, 404, { error: 'provider fixture not found' });
 });
 

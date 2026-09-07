@@ -1,4 +1,4 @@
-<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+<a class="skip-link" href="#conteudo" (click)="skipToContent($event)">Pular para o conteúdo</a>
 <div class="app-shell">
   <aside class="rail" aria-label="Atlas Carteira">
     <a class="brand" routerLink="/dashboard" aria-label="Atlas Carteira — Dashboard">
@@ -20,7 +20,7 @@
       <div><span class="context">Área protegida</span><strong>Atlas Carteira</strong></div>
       <div class="account"><span>{{ store.state().username }}</span><button type="button" (click)="logout()" [disabled]="loggingOut" [attr.aria-busy]="loggingOut">{{ loggingOut ? 'Saindo…' : 'Sair' }}</button></div>
     </header>
-    <main id="conteudo" tabindex="-1"><router-outlet /></main>
+    <main #content id="conteudo" tabindex="-1"><router-outlet /></main>
     <footer class="academic-disclaimer">Sistema acadêmico. Os registros são simulados; nenhuma ordem é enviada ao mercado e o conteúdo não constitui recomendação de investimento.</footer>
   </div>
 

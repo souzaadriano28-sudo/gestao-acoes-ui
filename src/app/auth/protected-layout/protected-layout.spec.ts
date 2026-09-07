@@ -29,6 +29,8 @@ describe('ProtectedLayoutComponent', () => {
     expect(root.querySelector('.rail')).toBeTruthy();
     expect(root.querySelector('.mobile-navigation')).toBeTruthy();
     expect(root.querySelector('.academic-disclaimer')?.textContent).toContain('nenhuma ordem é enviada');
+    (root.querySelector('.skip-link') as HTMLAnchorElement).click();
+    expect(document.activeElement).toBe(root.querySelector('#conteudo'));
     const firstLink = root.querySelector('.side-navigation a') as HTMLAnchorElement;
     firstLink.focus();
     expect(document.activeElement).toBe(firstLink);

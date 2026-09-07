@@ -14,10 +14,10 @@ import { PartialDataStateComponent } from '../partial-data-state/partial-data-st
       @case ('loading') { <app-loading-state [label]="'Carregando ' + label" /> }
       @case ('empty') { <app-empty-state [title]="emptyTitle" [message]="emptyMessage"><ng-content select="[empty-action]" /></app-empty-state> }
       @case ('unavailable') { <app-error-summary title="Dados indisponíveis" [message]="state.message" [retryable]="true" (retry)="retry.emit()" /> }
-      @case ('error') { <app-error-summary [message]="state.message" [retryable]="true" (retry)="retry.emit()" /> @if (state.previous !== undefined) { <app-partial-data-state message="A atualização falhou; os últimos dados confirmados permanecem visíveis." /><ng-content /> } }
-      @case ('stale') { <app-partial-data-state [message]="state.message" /><ng-content /> }
-      @default { <ng-content /> }
+      @case ('error') { <app-error-summary [message]="state.message" [retryable]="true" (retry)="retry.emit()" /> @if (state.previous !== undefined) { <app-partial-data-state message="A atualização falhou; os últimos dados confirmados permanecem visíveis." /> } }
+      @case ('stale') { <app-partial-data-state [message]="state.message" /> }
     }
+    @if (showContent) { <ng-content /> }
   </section>`,
   styles: [':host{display:block}section{display:grid;gap:var(--space-3)}'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -28,4 +28,6 @@ export class AsyncRegionComponent<T = unknown> {
   @Input() emptyTitle = 'Nenhum dado encontrado';
   @Input() emptyMessage = 'Não há informações confirmadas para exibir.';
   @Output() readonly retry = new EventEmitter<void>();
+  get showContent(): boolean { return this.state.status === 'success' || this.state.status === 'stale'
+    || ((this.state.status === 'loading' || this.state.status === 'error') && this.state.previous !== undefined); }
 }

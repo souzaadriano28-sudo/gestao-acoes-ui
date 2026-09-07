@@ -1,79 +1,19 @@
-import { HttpErrorResponse } from '@angular/common/http';
-import { of, Subject, throwError } from 'rxjs';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { CarteiraComponent } from './carteira';
 
 describe('CarteiraComponent', () => {
-  const asset = { id: 1, ticker: 'PETR4', mercado: 'BRASIL' };
-  let carteira: any;
-  let corretora: any;
-  let acao: any;
-  let component: CarteiraComponent;
-
-  beforeEach(() => {
-    carteira = {
-      comprar: vi.fn(() => of(void 0)), vender: vi.fn(() => of(void 0)),
-      getSaldoTotal: vi.fn(() => of(100)), listarPosicoes: vi.fn(() => of([]))
-    };
-    corretora = { listar: vi.fn(() => of([{ id: 7, cnpj: '11222333000181' }])) };
-    acao = { listar: vi.fn(() => of([asset])) };
-    component = new CarteiraComponent(carteira, corretora, acao, { detectChanges: vi.fn() } as any);
-    component.acaoSelecionada = asset;
-    component.corretoraIdSelecionada = 7;
-    component.quantidade = 1;
-  });
-
-  it('recusa quantidade fracionária localmente', () => {
-    component.quantidade = 1.5;
-    component.executarTransacao();
-    expect(carteira.comprar).not.toHaveBeenCalled();
-  });
-
-  it('bloqueia clique repetido e mudança de operação enquanto o POST está pendente', () => {
-    const response = new Subject<void>();
-    carteira.comprar.mockReturnValue(response);
-    component.executarTransacao();
-    component.executarTransacao();
-    component.selecionarTipo('VENDA');
-    expect(carteira.comprar).toHaveBeenCalledTimes(1);
-    expect(component.tipoOperacao).toBe('COMPRA');
-    response.error(new HttpErrorResponse({ status: 422, error: { message: 'recusada', fieldErrors: [] } }));
-    expect(component.operacaoPendente).toBe(false);
-  });
-
-  it('distingue operação recusada e associa erros de campo', () => {
-    carteira.comprar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 422, error: {
-      message: 'Revise', fieldErrors: [{ field: 'qtd', message: 'inválida' }]
-    }})));
-    component.executarTransacao();
-    expect(component.mensagemErro).toBe('Revise');
-    expect(component.errosCampos['qtd']).toBe('inválida');
-  });
-
-  it('mantém confirmação e avisa quando a atualização posterior falha', () => {
-    carteira.getSaldoTotal.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
-    component.executarTransacao();
-    expect(component.mensagemSucesso).toContain('sucesso');
-    expect(component.mensagemAviso).toContain('confirmada');
-  });
-
-  it('trata perda de comunicação como resultado desconhecido sem retry automático', () => {
-    carteira.comprar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
-    component.executarTransacao();
-    expect(component.mensagemErro).toContain('confirmar o resultado');
-    expect(carteira.comprar).toHaveBeenCalledTimes(1);
-    expect(component.quantidade).toBe(1);
-  });
-
-  it('não apresenta zero fictício na falha inicial e preserva dados antigos na falha posterior', () => {
-    carteira.getSaldoTotal.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
-    component.carregarDashboard();
-    expect(component.saldoTotal).toBeNull();
-    expect(component.cargaFalhou).toBe(true);
-
-    component.saldoTotal = 100;
-    component.posicoes = [{ ticker: 'PETR4', corretora: 'Teste', quantidade: 1, precoMedio: 20, moeda: 'BRL' }];
-    component.carregarDashboard();
-    expect(component.saldoTotal).toBe(100);
-    expect(component.dadosDesatualizados).toBe(true);
-  });
+  let fixture: ComponentFixture<CarteiraComponent>; let http: HttpTestingController;
+  beforeEach(async () => { await TestBed.configureTestingModule({ imports: [CarteiraComponent], providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] }).compileComponents(); fixture = TestBed.createComponent(CarteiraComponent); http = TestBed.inject(HttpTestingController); });
+  afterEach(() => http.verify());
+  function start(items: any[] = []): void { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([]); http.expectOne(request => request.url === '/api/carteira/posicoes/detalhadas').flush({ items, page: 0, size: 20, totalElements: items.length, totalPages: items.length ? 1 : 0 }); }
+  it('reserva loading e apresenta vazio confirmado', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([]); expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).toBeTruthy(); http.expectOne(request => request.url === '/api/carteira/posicoes/detalhadas').flush({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 }); fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Nenhuma posição encontrada'); });
+  it('apresenta erro completo com repetição de leitura', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([]); http.expectOne(request => request.url === '/api/carteira/posicoes/detalhadas').flush({ message: 'Carteira indisponível' }, { status: 503, statusText: 'Unavailable' }); fixture.detectChanges(); expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy(); expect(fixture.nativeElement.querySelector('app-error-summary button')).toBeTruthy(); });
+  it('envia filtros server-side e preserva busca/ordenação na página', () => { start([position(1, 'PETR4', 'Corretora B', 2), position(2, 'PETR4', 'Corretora A', 5)]); const component = fixture.componentInstance; component.filters.setValue({ search: 'corretora', market: 'BRASIL', brokerId: 7, sort: 'broker' }); component.applyFilters(); const request = http.expectOne(value => value.url === '/api/carteira/posicoes/detalhadas'); expect(request.request.params.get('market')).toBe('BRASIL'); expect(request.request.params.get('brokerId')).toBe('7'); request.flush({ items: [position(1, 'PETR4', 'Corretora B', 2), position(2, 'PETR4', 'Corretora A', 5)], page: 0, size: 20, totalElements: 2, totalPages: 1 }); expect(component.visiblePositions.map(item => item.brokerName)).toEqual(['Corretora A', 'Corretora B']); });
+  it('mantém mesmo ticker separado por corretora', () => { start([position(1, 'PETR4', 'A', 2), position(2, 'PETR4', 'B', 3)]); expect(fixture.componentInstance.visiblePositions).toHaveLength(2); expect(new Set(fixture.componentInstance.visiblePositions.map(item => item.positionId)).size).toBe(2); });
+  it('preserva posição e marca stale em falha posterior', () => { start([position(1, 'PETR4', 'A', 2)]); fixture.componentInstance.load(); http.expectOne(request => request.url === '/api/carteira/posicoes/detalhadas').flush({}, { status: 503, statusText: 'Unavailable' }); expect(fixture.componentInstance.facade.state().status).toBe('stale'); expect(fixture.componentInstance.visiblePositions).toHaveLength(1); });
+  it('exibe indisponibilidade individual sem zero', () => { const item = position(1, 'AAPL', 'A', 1); item.currentQuote = { availability: 'UNAVAILABLE', value: null, currency: 'USD', reason: 'QUOTE_UNAVAILABLE' }; item.marketValue = { availability: 'UNAVAILABLE', value: null, currency: 'USD', reason: 'QUOTE_UNAVAILABLE' }; start([item]); fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Indisponível'); });
 });
+function position(id: number, ticker: string, brokerName: string, quantity: number): any { const money = { availability: 'AVAILABLE', value: 10, currency: 'BRL', reason: null }; return { positionId: id, assetId: id, ticker, market: 'BRASIL', brokerId: id, brokerName, quantity, nativeCurrency: 'BRL', averagePrice: money, cost: money, currentQuote: money, marketValue: money, unrealizedResult: money, quoteProvenance: { availability: 'AVAILABLE', sourceType: 'STUB', provider: 'Provedor sintético', referenceAt: '2026-09-06T15:00:00Z', fetchedAt: '2026-09-06T15:01:00Z', referenceKind: 'MARKET', currency: 'BRL', reason: null } }; }

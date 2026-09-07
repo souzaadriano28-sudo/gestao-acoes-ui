@@ -1,57 +1,17 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { CorretoraComponent } from './corretora';
 
 describe('CorretoraComponent', () => {
-  let fixture: ComponentFixture<CorretoraComponent>;
-  let http: HttpTestingController;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [CorretoraComponent],
-      providers: [provideHttpClient(), provideHttpClientTesting()]
-    }).compileComponents();
-    fixture = TestBed.createComponent(CorretoraComponent);
-    http = TestBed.inject(HttpTestingController);
-  });
-
+  let fixture: ComponentFixture<CorretoraComponent>; let http: HttpTestingController;
+  beforeEach(async () => { await TestBed.configureTestingModule({ imports: [CorretoraComponent], providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()] }).compileComponents(); fixture = TestBed.createComponent(CorretoraComponent); http = TestBed.inject(HttpTestingController); });
   afterEach(() => http.verify());
-
-  it('bloqueia cadastro repetido, associa erro de campo e libera o formulário', () => {
-    fixture.detectChanges();
-    http.expectOne('/api/corretoras').flush([]);
-    const component = fixture.componentInstance;
-    component.cnpjCorretora = '11.222.333/0001-81';
-    component.cepCorretora = '01001000';
-
-    component.adicionarCorretora();
-    component.adicionarCorretora();
-    const requests = http.match('/api/corretoras');
-    expect(requests.length).toBe(1);
-    expect(component.salvando).toBe(true);
-    requests[0].flush({ message: 'Revise', fieldErrors: [{ field: 'cnpj', message: 'inválido' }] },
-      { status: 422, statusText: 'Unprocessable Entity' });
-    expect(component.salvando).toBe(false);
-    expect(component.errosCampos['cnpj']).toBe('inválido');
-  });
-
-  it('distingue vazio, falha inicial e dados antigos desatualizados', () => {
-    fixture.detectChanges();
-    http.expectOne('/api/corretoras').flush([]);
-    const component = fixture.componentInstance;
-    expect(component.corretoras).toEqual([]);
-    expect(component.cargaFalhou).toBe(false);
-
-    component.carregarCorretoras();
-    http.expectOne('/api/corretoras').flush({}, { status: 503, statusText: 'Unavailable' });
-    expect(component.cargaFalhou).toBe(true);
-    expect(component.dadosDesatualizados).toBe(false);
-
-    component.corretoras = [{ id: 1, cnpj: '11222333000181', razaoSocial: 'Corretora Teste' }];
-    component.carregarCorretoras();
-    http.expectOne('/api/corretoras').flush({}, { status: 503, statusText: 'Unavailable' });
-    expect(component.corretoras.length).toBe(1);
-    expect(component.dadosDesatualizados).toBe(true);
-  });
+  it('renderiza loading, vazio e mantém foco operável', () => { fixture.detectChanges(); expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).toBeTruthy(); http.expectOne('/api/corretoras').flush([]); fixture.detectChanges(); expect(fixture.nativeElement.textContent).toContain('Nenhuma corretora cadastrada'); const input = fixture.nativeElement.querySelector('#broker-cnpj') as HTMLInputElement; input.focus(); expect(document.activeElement).toBe(input); });
+  it('renderiza erro completo com repetição focável', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush({ message: 'Corretoras indisponíveis' }, { status: 503, statusText: 'Unavailable' }); fixture.detectChanges(); const retry = fixture.nativeElement.querySelector('app-error-summary button') as HTMLButtonElement; expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy(); retry.focus(); expect(document.activeElement).toBe(retry); });
+  it('normaliza CNPJ/CEP, omite campos opcionais e impede submit duplicado', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([]); const component = fixture.componentInstance; component.form.setValue({ cnpj: '11.222.333/0001-81', cep: '01001-000' }); component.adicionarCorretora(); component.adicionarCorretora(); const requests = http.match('/api/corretoras'); expect(requests).toHaveLength(1); expect(requests[0].request.body).toEqual({ cnpj: '11222333000181', cep: '01001000' }); requests[0].flush({ cnpj: '11222333000181' }, { status: 201, statusText: 'Created' }); http.expectOne('/api/corretoras').flush([]); });
+  it('associa erros do backend aos campos', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([]); const component = fixture.componentInstance; component.form.setValue({ cnpj: '11222333000181', cep: '01001000' }); component.adicionarCorretora(); http.expectOne('/api/corretoras').flush({ message: 'Revise', fieldErrors: [{ field: 'cnpj', message: 'CNPJ inválido' }] }, { status: 422, statusText: 'Unprocessable Entity' }); expect(component.errosCampos['cnpj']).toBe('CNPJ inválido'); expect(component.form.getRawValue()).toEqual({ cnpj: '11222333000181', cep: '01001000' }); });
+  it.each(['NOT_CHECKED', 'VERIFIED', 'NOT_FOUND', 'STALE', 'UNAVAILABLE'] as const)('apresenta evidência %s sem inferir CNAE', status => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([{ id: 1, cnpj: '11222333000181', razaoSocial: 'Instituição sintética', situacaoCadastral: 'ATIVA', regulatoryEvidence: { status, category: status === 'VERIFIED' ? 'INTERMEDIÁRIO' : null, source: status === 'VERIFIED' ? 'CVM Dados Abertos' : null, evidenceId: null, referenceAt: null, checkedAt: null, reason: null } }]); fixture.detectChanges(); const text = fixture.nativeElement.textContent as string; expect(text).toContain(fixture.componentInstance.evidenceLabel(status)); expect(text).not.toContain('autorizada pela CVM'); });
+  it('mantém dados anteriores como stale após falha', () => { fixture.detectChanges(); http.expectOne('/api/corretoras').flush([{ id: 1, cnpj: '11222333000181' }]); fixture.componentInstance.load(); http.expectOne('/api/corretoras').flush({}, { status: 503, statusText: 'Unavailable' }); expect(fixture.componentInstance.facade.state().status).toBe('stale'); });
 });

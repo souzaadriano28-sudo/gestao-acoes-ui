@@ -12,6 +12,25 @@ export interface Corretora {
   bairro?: string;
   cidade?: string;
   uf?: string;
+  email?: string;
+  telefone?: string;
+  numero?: string;
+  complemento?: string;
+  situacaoCadastral?: string;
+  dataCadastro?: string;
+  businessRegistration?: { source: string; status: string | null; reason: string | null };
+  regulatoryEvidence?: RegulatoryEvidence;
+}
+
+export type RegulatoryStatus = 'NOT_CHECKED' | 'VERIFIED' | 'NOT_FOUND' | 'STALE' | 'UNAVAILABLE';
+export interface RegulatoryEvidence {
+  status: RegulatoryStatus;
+  category: string | null;
+  source: string | null;
+  evidenceId: string | null;
+  referenceAt: string | null;
+  checkedAt: string | null;
+  reason: string | null;
 }
 
 @Injectable({
@@ -33,5 +52,9 @@ export class CorretoraService {
       cep: cepDigitado
     };
     return this.http.post<Corretora>(this.apiUrl, payload);
+  }
+
+  atualizarEvidencias(): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/evidencia-regulatoria/atualizar`, {});
   }
 }

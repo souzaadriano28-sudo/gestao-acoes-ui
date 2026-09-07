@@ -44,6 +44,8 @@ export default defineConfig({
         INTEGRATIONS_TWELVEDATA_URL: 'http://127.0.0.1:9090/twelvedata',
         INTEGRATIONS_BRASILAPI_URL: 'http://127.0.0.1:9090/brasilapi/cnpj/v1',
         INTEGRATIONS_VIACEP_URL: 'http://127.0.0.1:9090/viacep',
+        INTEGRATIONS_BCB_PTAX_URL: 'http://127.0.0.1:9090/bcb',
+        INTEGRATIONS_CVM_REGISTRY_URL: 'http://127.0.0.1:9090/cvm',
         ADMIN_INITIAL_USERNAME: process.env['E2E_RUNTIME_ADMIN_USERNAME']!,
         ADMIN_INITIAL_PASSWORD: process.env['E2E_RUNTIME_ADMIN_PASSWORD']!
       }

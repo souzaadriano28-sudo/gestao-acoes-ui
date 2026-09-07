@@ -1,117 +1,77 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { finalize, forkJoin } from 'rxjs';
-import { Acao, AcaoService } from '../../services/acao';
-import { CarteiraService, Posicao, TransacaoRequest } from '../../services/carteira';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { DetailedPosition, Market, PageResponse, PositionQuery } from '../../core/portfolio/portfolio.models';
+import { PortfolioReadService } from '../../core/portfolio/portfolio-read.service';
 import { Corretora, CorretoraService } from '../../services/corretora';
-import { parseApiError } from '../../services/api-error';
+import { AsyncReadFacade, stateData } from '../../shared/state/async-state';
+import { AsyncRegionComponent } from '../../shared/components/async-region/async-region';
+import { CurrencyValueComponent } from '../../shared/components/currency-value/currency-value';
+import { DataStatusComponent } from '../../shared/components/data-status/data-status';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state';
+import { PageHeaderComponent } from '../../shared/components/page-header/page-header';
+import { PaginationComponent } from '../../shared/components/pagination/pagination';
+import { QuoteProvenanceComponent } from '../../shared/components/quote-provenance/quote-provenance';
+import { ResponsiveDataListComponent } from '../../shared/components/responsive-data-list/responsive-data-list';
+
+type PositionSort = 'ticker' | 'broker' | 'quantity';
 
 @Component({
-  selector: 'app-carteira',
-  standalone: true,
-  imports: [FormsModule, CommonModule],
-  templateUrl: './carteira.html',
-  styleUrl: './carteira.css'
+  selector: 'app-carteira', standalone: true,
+  imports: [ReactiveFormsModule, AsyncRegionComponent, CurrencyValueComponent, DataStatusComponent, EmptyStateComponent,
+    PageHeaderComponent, PaginationComponent, QuoteProvenanceComponent, ResponsiveDataListComponent],
+  templateUrl: './carteira.html', styleUrl: './carteira.css'
 })
-export class CarteiraComponent implements OnInit {
-  saldoTotal: number | null = null;
-  corretoras: Corretora[] = [];
-  acoes: Acao[] = [];
-  posicoes: Posicao[] = [];
-  tipoOperacao: 'COMPRA' | 'VENDA' = 'COMPRA';
-  acaoSelecionada: Acao | '' = '';
-  corretoraIdSelecionada: number | '' = '';
-  quantidade: number | null = null;
-  mensagemSucesso = '';
-  mensagemErro = '';
-  mensagemAviso = '';
-  errosCampos: Record<string, string> = {};
-  carregando = false;
-  cargaFalhou = false;
-  dadosDesatualizados = false;
-  operacaoPendente = false;
+export class CarteiraComponent implements OnInit, OnDestroy {
+  readonly facade = new AsyncReadFacade<PageResponse<DetailedPosition>>();
+  readonly filters = new FormGroup({
+    search: new FormControl('', { nonNullable: true }),
+    market: new FormControl<Market | ''>('', { nonNullable: true }),
+    brokerId: new FormControl<number | ''>('', { nonNullable: true }),
+    sort: new FormControl<PositionSort>('ticker', { nonNullable: true })
+  });
+  brokers: Corretora[] = [];
+  brokerLoadFailed = false;
+  page = 0;
+  readonly size = 20;
 
-  constructor(
-    private carteiraService: CarteiraService,
-    private corretoraService: CorretoraService,
-    private acaoService: AcaoService,
-    private cdr: ChangeDetectorRef
-  ) {}
+  constructor(private readonly reads: PortfolioReadService, private readonly brokerService: CorretoraService,
+    private readonly route: ActivatedRoute, private readonly router: Router) {}
 
-  ngOnInit(): void { this.carregarDashboard(); }
-
-  carregarDashboard(aposOperacao = false): void {
-    this.carregando = true;
-    this.cargaFalhou = false;
-    forkJoin({
-      saldo: this.carteiraService.getSaldoTotal(),
-      posicoes: this.carteiraService.listarPosicoes(),
-      corretoras: this.corretoraService.listar(),
-      acoes: this.acaoService.listar()
-    }).pipe(finalize(() => { this.carregando = false; this.cdr.detectChanges(); })).subscribe({
-      next: ({ saldo, posicoes, corretoras, acoes }) => {
-        this.saldoTotal = saldo;
-        this.posicoes = posicoes;
-        this.corretoras = corretoras;
-        this.acoes = acoes;
-        this.dadosDesatualizados = false;
-        this.cargaFalhou = false;
-        this.mensagemAviso = '';
-      },
-      error: (error) => {
-        this.cargaFalhou = true;
-        this.dadosDesatualizados = this.saldoTotal !== null || this.posicoes.length > 0;
-        const detail = parseApiError(error).message;
-        this.mensagemAviso = aposOperacao
-          ? `A operação foi confirmada, mas os dados não puderam ser atualizados: ${detail}`
-          : detail;
-      }
-    });
+  ngOnInit(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const market = params.get('market');
+    this.page = Math.max(0, Number(params.get('page')) || 0);
+    this.filters.patchValue({ search: params.get('search') ?? '', market: market === 'BRASIL' || market === 'AMERICANO' ? market : '',
+      brokerId: positiveNumber(params.get('brokerId')), sort: asSort(params.get('sort')) }, { emitEvent: false });
+    this.loadBrokers();
+    this.load();
   }
-
-  selecionarTipo(tipo: 'COMPRA' | 'VENDA'): void {
-    if (!this.operacaoPendente) this.tipoOperacao = tipo;
+  ngOnDestroy(): void { this.facade.destroy(); }
+  load(): void {
+    const value = this.filters.getRawValue();
+    const query: PositionQuery = { page: this.page, size: this.size };
+    if (value.market) query.market = value.market;
+    if (value.brokerId) query.brokerId = value.brokerId;
+    this.facade.load(() => this.reads.detailedPositions(query), result => result.items.length === 0);
+    void this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: {
+      page: this.page || null, search: value.search || null, market: value.market || null,
+      brokerId: value.brokerId || null, sort: value.sort === 'ticker' ? null : value.sort
+    }, queryParamsHandling: 'merge' });
   }
-
-  executarTransacao(): void {
-    if (this.operacaoPendente) return;
-    this.mensagemSucesso = '';
-    this.mensagemErro = '';
-    this.mensagemAviso = '';
-    this.errosCampos = {};
-
-    if (!this.acaoSelecionada || !this.corretoraIdSelecionada || !this.quantidade
-        || this.quantidade <= 0 || !Number.isInteger(this.quantidade)) {
-      this.mensagemErro = 'Preencha todos os campos com uma quantidade inteira positiva.';
-      this.cdr.detectChanges();
-      return;
-    }
-
-    const payload: TransacaoRequest = {
-      ticker: this.acaoSelecionada.ticker,
-      mercado: this.acaoSelecionada.mercado,
-      qtd: this.quantidade,
-      corretoraId: Number(this.corretoraIdSelecionada)
-    };
-    const operation = this.tipoOperacao === 'COMPRA'
-      ? this.carteiraService.comprar(payload)
-      : this.carteiraService.vender(payload);
-
-    this.operacaoPendente = true;
-    operation.pipe(finalize(() => { this.operacaoPendente = false; this.cdr.detectChanges(); })).subscribe({
-      next: () => {
-        this.mensagemSucesso = `${this.tipoOperacao} de ${this.quantidade} cotas de ${payload.ticker} realizada com sucesso!`;
-        this.quantidade = null;
-        this.carregarDashboard(true);
-      },
-      error: (error) => {
-        const parsed = parseApiError(error);
-        this.errosCampos = parsed.fields;
-        this.mensagemErro = parsed.unknownOutcome
-          ? 'Não foi possível confirmar o resultado da operação. Atualize as posições antes de tentar novamente.'
-          : parsed.message;
-      }
-    });
+  applyFilters(): void { this.page = 0; this.load(); }
+  clearFilters(): void { this.filters.reset({ search: '', market: '', brokerId: '', sort: 'ticker' }); this.applyFilters(); }
+  changePage(page: number): void { this.page = page; this.load(); }
+  private loadBrokers(): void { this.brokerService.listar().subscribe({ next: value => { this.brokers = value; this.brokerLoadFailed = false; }, error: () => this.brokerLoadFailed = true }); }
+  get response(): PageResponse<DetailedPosition> | undefined { return stateData(this.facade.state()); }
+  get visiblePositions(): DetailedPosition[] {
+    const value = this.filters.getRawValue();
+    const term = value.search.trim().toLocaleUpperCase('pt-BR');
+    return [...(this.response?.items ?? [])].filter(item => !term || item.ticker.includes(term) || item.brokerName.toLocaleUpperCase('pt-BR').includes(term))
+      .sort((a, b) => value.sort === 'quantity' ? b.quantity - a.quantity : value.sort === 'broker'
+        ? a.brokerName.localeCompare(b.brokerName, 'pt-BR') : a.ticker.localeCompare(b.ticker, 'pt-BR'));
   }
 }
+
+function positiveNumber(value: string | null): number | '' { const parsed = Number(value); return Number.isInteger(parsed) && parsed > 0 ? parsed : ''; }
+function asSort(value: string | null): PositionSort { return value === 'broker' || value === 'quantity' ? value : 'ticker'; }
