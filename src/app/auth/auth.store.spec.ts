@@ -3,6 +3,15 @@ import { of, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { AuthStore } from './auth.store';
 
+describe('AuthStore session revalidation',()=>{
+  it('clears locally authenticated state when the server session expired',()=>{
+    const auth={session:vi.fn(()=>throwError(()=>new Error('401'))),fetchCsrf:vi.fn(()=>of({})),clearCsrf:vi.fn()};
+    TestBed.configureTestingModule({providers:[AuthStore,{provide:AuthService,useValue:auth}]});const store=TestBed.inject(AuthStore);
+    store.setAuthenticated({authenticated:true,username:'atlas'});store.ensureSession().subscribe(ok=>expect(ok).toBe(false));
+    expect(auth.session).toHaveBeenCalledTimes(1);expect(store.state()).toEqual({status:'anonymous',username:null});
+  });
+});
+
 describe('AuthStore',()=>{
   it('representa verificação, autenticação e expiração somente em memória',()=>{
     const auth={session:()=>of({authenticated:true as const,username:'atlas'}),fetchCsrf:()=>of({token:'x',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'}),clearCsrf:vi.fn()};

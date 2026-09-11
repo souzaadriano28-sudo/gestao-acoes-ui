@@ -1,5 +1,6 @@
 <app-page-header title="Corretoras" eyebrow="Instituições" description="Cadastre uma instituição somente após validar CNPJ, autorização CVM e endereço.">
-  <button type="button" class="button-secondary" (click)="refreshEvidence()" [disabled]="refreshingEvidence">{{ refreshingEvidence ? 'Consultando…' : 'Atualizar evidências' }}</button>
+  <button type="button" class="button-secondary" (click)="refreshEvidence()" [disabled]="refreshingEvidence || !canRefreshEvidence" aria-describedby="refresh-evidence-description">{{ refreshingEvidence ? 'Consultando…' : 'Revalidar situação na CVM' }}</button>
+  <span id="refresh-evidence-description" class="sr-only">Atualiza a situação regulatória das corretoras cadastradas.</span>
   <button type="button" class="button-secondary" (click)="load()" [disabled]="facade.state().status === 'loading'">Atualizar lista</button>
 </app-page-header>
 

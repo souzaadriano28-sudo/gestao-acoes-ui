@@ -4,6 +4,30 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { CorretoraComponent } from './corretora';
 
+describe('CorretoraComponent empty evidence state', () => {
+  it('disables CVM revalidation without brokers and does not call the API', async () => {
+    await TestBed.configureTestingModule({
+      imports: [CorretoraComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(CorretoraComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/corretoras').flush([]);
+    fixture.detectChanges();
+
+    const button = [...fixture.nativeElement.querySelectorAll('button')]
+      .find((item: HTMLButtonElement) => item.textContent?.includes('Revalidar situação na CVM')) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute('aria-describedby')).toBe('refresh-evidence-description');
+    expect(fixture.nativeElement.querySelector('#refresh-evidence-description')?.textContent)
+      .toContain('situação regulatória das corretoras cadastradas');
+    fixture.componentInstance.refreshEvidence();
+    http.expectNone('/api/corretoras/evidencia-regulatoria/atualizar');
+    http.verify();
+  });
+});
+
 describe('CorretoraComponent', () => {
   let fixture: ComponentFixture<CorretoraComponent>; let http: HttpTestingController;
   const company = { cnpj: '11222333000181', razaoSocial: 'Corretora Teste', nomeFantasia: 'Teste',

@@ -51,6 +51,7 @@ export class CorretoraComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.facade.destroy(); }
   load(): void { this.facade.load(() => this.service.listar(), items => items.length === 0); }
   get corretoras(): Corretora[] { return stateData(this.facade.state()) ?? []; }
+  get canRefreshEvidence(): boolean { return this.corretoras.length > 0; }
   get podeConsultarCep(): boolean { return !!this.empresa?.autorizadaPelaCvm; }
   get podeCadastrar(): boolean {
     return !!this.empresa?.autorizadaPelaCvm && !!this.endereco
@@ -130,7 +131,7 @@ export class CorretoraComponent implements OnInit, OnDestroy {
   }
 
   refreshEvidence(): void {
-    if (this.refreshingEvidence) return;
+    if (this.refreshingEvidence || !this.canRefreshEvidence) return;
     this.mensagemErro = ''; this.mensagemSucesso = ''; this.refreshingEvidence = true;
     this.service.atualizarEvidencias().pipe(finalize(() => { this.refreshingEvidence = false; this.cdr.markForCheck(); })).subscribe({
       next: () => { this.mensagemSucesso = 'Consulta regulatória concluída; evidências relidas.'; this.load(); this.cdr.markForCheck(); },

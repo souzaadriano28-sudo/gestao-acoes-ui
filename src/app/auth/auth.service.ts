@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, switchMap, tap } from 'rxjs';
-import { CsrfResponse, SessionResponse } from './auth.models';
+import { CsrfResponse, RegistrationRequest, SessionResponse } from './auth.models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -15,6 +15,11 @@ export class AuthService {
   login(username: string, password: string): Observable<SessionResponse> {
     const ensure = this.csrf() ? new Observable<CsrfResponse>(subscriber => { subscriber.next(this.csrf()!); subscriber.complete(); }) : this.fetchCsrf();
     return ensure.pipe(switchMap(() => this.http.post<SessionResponse>(`${this.baseUrl}/login`, { username, password })),
+      tap(() => this.csrf.set(null)), switchMap(session => this.fetchCsrf().pipe(switchMap(() => [session]))));
+  }
+  register(data: RegistrationRequest): Observable<SessionResponse> {
+    const ensure = this.csrf() ? new Observable<CsrfResponse>(subscriber => { subscriber.next(this.csrf()!); subscriber.complete(); }) : this.fetchCsrf();
+    return ensure.pipe(switchMap(() => this.http.post<SessionResponse>(`${this.baseUrl}/register`, data)),
       tap(() => this.csrf.set(null)), switchMap(session => this.fetchCsrf().pipe(switchMap(() => [session]))));
   }
   session(): Observable<SessionResponse> { return this.http.get<SessionResponse>(`${this.baseUrl}/session`); }
