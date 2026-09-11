@@ -12,7 +12,6 @@
       <a routerLink="/corretoras" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="brokers" /><b>Corretoras</b></a>
       <a routerLink="/operacoes" routerLinkActive="active" ariaCurrentWhenActive="page"><app-atlas-icon name="operations" /><b>Operações</b></a>
     </nav>
-    <p class="rail-note"><strong>Ambiente acadêmico</strong><span>Registros simulados</span></p>
   </aside>
 
   <div class="workspace">
@@ -22,7 +21,7 @@
       <div class="account"><span>{{ store.state().username }}</span><button type="button" (click)="logout()" [disabled]="loggingOut" [attr.aria-busy]="loggingOut">{{ loggingOut ? 'Saindo…' : 'Sair' }}</button></div>
     </header>
     <main #content id="conteudo" tabindex="-1"><router-outlet /></main>
-    <footer class="academic-disclaimer">Simulação acadêmica · Nenhuma ordem é enviada; não constitui recomendação.</footer>
+    <footer class="academic-disclaimer">Dados e cotações apresentados para acompanhamento da carteira.</footer>
   </div>
 
   <nav class="mobile-navigation" aria-label="Navegação principal móvel">

@@ -16,11 +16,12 @@ describe('value formatters', () => {
     expect(formatPercentage({ availability: 'AVAILABLE', value: -2.5, reason: null }).accessibleText).toContain('negativo');
   });
 
-  it('converte instantes com offset para o fuso declarado e não presume fuso legado', () => {
+  it('converte instantes com offset para Brasília e mantém LocalDateTime legado neutro', () => {
     const instant = formatDateTime('2026-09-06T15:00:00Z');
-    expect(instant.accessibleText).toContain('America/Sao_Paulo');
+    expect(instant.text).toContain('BRT');
+    expect(instant.text).not.toContain(',');
     const legacy = formatDateTime('2026-09-06T12:00:00');
-    expect(legacy.text).toContain('fuso não fornecido');
+    expect(legacy.text).not.toMatch(/fuso não fornecido|horário informado sem zona/i);
     expect(legacy.text).toContain('12:00:00');
   });
 });

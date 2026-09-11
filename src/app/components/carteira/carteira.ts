@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DetailedPosition, Market, PageResponse, PositionQuery } from '../../core/portfolio/portfolio.models';
@@ -37,7 +37,7 @@ export class CarteiraComponent implements OnInit, OnDestroy {
   readonly size = 20;
 
   constructor(private readonly reads: PortfolioReadService, private readonly brokerService: CorretoraService,
-    private readonly route: ActivatedRoute, private readonly router: Router) {}
+    private readonly route: ActivatedRoute, private readonly router: Router, private readonly changeDetector: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
@@ -64,7 +64,7 @@ export class CarteiraComponent implements OnInit, OnDestroy {
   clearFilters(): void { this.filters.reset({ search: '', market: '', brokerId: '', sort: 'ticker' }); this.applyFilters(); }
   toggleFilters(): void { this.filtersExpanded = !this.filtersExpanded; }
   changePage(page: number): void { this.page = page; this.load(); }
-  private loadBrokers(): void { this.brokerService.listar().subscribe({ next: value => { this.brokers = value; this.brokerLoadFailed = false; }, error: () => this.brokerLoadFailed = true }); }
+  private loadBrokers(): void { this.brokerService.listar().subscribe({ next: value => { this.brokers = value; this.brokerLoadFailed = false; this.changeDetector.markForCheck(); }, error: () => { this.brokerLoadFailed = true; this.changeDetector.markForCheck(); } }); }
   get response(): PageResponse<DetailedPosition> | undefined { return stateData(this.facade.state()); }
   get activeFilterCount(): number { const value = this.filters.getRawValue(); return [value.search, value.market, value.brokerId, value.sort !== 'ticker'].filter(Boolean).length; }
   get visiblePositions(): DetailedPosition[] {

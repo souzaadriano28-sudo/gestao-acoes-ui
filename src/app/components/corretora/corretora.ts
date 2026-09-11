@@ -114,17 +114,18 @@ export class CorretoraComponent implements OnInit, OnDestroy {
   adicionarCorretora(): void {
     if (this.salvando || !this.podeCadastrar) return;
     this.erroCadastro = ''; this.mensagemSucesso = '';
-    this.salvando = true;
+    this.salvando = true; this.cdr.markForCheck();
     const raw = this.form.getRawValue();
     this.service.salvar({ cnpj: digits(raw.cnpj), cep: digits(raw.cep),
       ...(raw.numero.trim() ? { numero: raw.numero.trim() } : {}),
       ...(raw.complemento.trim() ? { complemento: raw.complemento.trim() } : {})
     }).pipe(finalize(() => { this.salvando = false; this.cdr.markForCheck(); })).subscribe({
-      next: () => {
+      next: created => {
+        this.facade.apply([...this.corretoras, created], items => items.length === 0);
         this.form.reset({ cnpj: '', cep: '', numero: '', complemento: '' });
         this.empresa = null; this.endereco = null; this.cnpjConsultado = ''; this.cepConsultado = '';
         this.mensagemSucesso = 'Corretora cadastrada com validação empresarial, regulatória e de endereço.';
-        this.load(); this.cdr.markForCheck();
+        this.cdr.markForCheck();
       },
       error: error => { const parsed = parseApiError(error); this.erroCadastro = parsed.message; this.errosCampos = parsed.fields; this.cdr.markForCheck(); }
     });
@@ -132,7 +133,7 @@ export class CorretoraComponent implements OnInit, OnDestroy {
 
   refreshEvidence(): void {
     if (this.refreshingEvidence || !this.canRefreshEvidence) return;
-    this.mensagemErro = ''; this.mensagemSucesso = ''; this.refreshingEvidence = true;
+    this.mensagemErro = ''; this.mensagemSucesso = ''; this.refreshingEvidence = true; this.cdr.markForCheck();
     this.service.atualizarEvidencias().pipe(finalize(() => { this.refreshingEvidence = false; this.cdr.markForCheck(); })).subscribe({
       next: () => { this.mensagemSucesso = 'Consulta regulatória concluída; evidências relidas.'; this.load(); this.cdr.markForCheck(); },
       error: error => { this.mensagemErro = parseApiError(error).message; this.cdr.markForCheck(); }

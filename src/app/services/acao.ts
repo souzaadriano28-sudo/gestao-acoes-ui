@@ -37,6 +37,10 @@ export class AcaoService {
     return this.http.post<Acao>(this.apiUrl, payload);
   }
 
+  consultar(ticker: string, mercado: 'BRASIL' | 'AMERICANO'): Observable<Acao> {
+    return this.http.get<Acao>(`${this.apiUrl}/consulta`, { params: { ticker, mercado } });
+  }
+
   atualizarCotacao(id: number): Observable<Acao> {
     return this.http.put<Acao>(`${this.apiUrl}/${id}/atualizar-cotacao`, {});
   }
