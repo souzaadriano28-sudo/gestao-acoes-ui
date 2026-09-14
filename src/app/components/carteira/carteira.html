@@ -1,29 +1,47 @@
-<app-page-header title="Carteira" eyebrow="Patrimônio" description="Posições confirmadas, por ativo e corretora.">
-  <button type="button" class="button-secondary" aria-label="Atualizar posições" (click)="load()" [disabled]="facade.state().status === 'loading'">Atualizar</button>
+<app-page-header title="Carteira" eyebrow="Posições abertas" description="Posições por ativo, corretora e moeda. Não há patrimônio consolidado entre moedas.">
+  <button type="button" class="button-secondary carteira-refresh" aria-label="Atualizar posições" (click)="refreshQuotes()" [disabled]="refreshingQuotes">{{refreshingQuotes ? 'Atualizando…' : 'Atualizar'}}</button>
 </app-page-header>
+<p class="refresh-message" role="status">{{refreshMessage}}</p>
 
 <section class="filter-panel" aria-labelledby="position-filters-title">
   <button class="filter-toggle" type="button" (click)="toggleFilters()" [attr.aria-expanded]="filtersExpanded" aria-controls="position-filter-fields"><span id="position-filters-title">Filtrar e ordenar</span><small>{{ activeFilterCount ? activeFilterCount + ' filtro(s) ativo(s)' : 'Nenhum filtro ativo' }}</small></button>
   <form id="position-filter-fields" class="filter-fields" [class.expanded]="filtersExpanded" [formGroup]="filters" (ngSubmit)="applyFilters()">
     <div class="field search-field"><label for="position-search">Buscar</label><input id="position-search" aria-label="Buscar ativo ou corretora" formControlName="search" type="search" autocomplete="off" placeholder="Ativo ou corretora"></div>
     <div class="field"><label for="position-market">Mercado</label><select id="position-market" formControlName="market"><option value="">Todos</option><option value="BRASIL">Brasil</option><option value="AMERICANO">Americano</option></select></div>
-    <div class="field"><label for="position-broker">Corretora</label><select id="position-broker" formControlName="brokerId"><option value="">Todas</option>@for (broker of brokers; track broker.id) { <option [ngValue]="broker.id">{{ broker.razaoSocial || broker.nomeFantasia || broker.cnpj }}</option> }</select>@if (brokerLoadFailed) { <p class="field-error">Corretoras indisponíveis; as posições ainda podem ser consultadas.</p> }</div>
+    <div class="field"><label for="position-broker">Corretora</label><select id="position-broker" formControlName="brokerId"><option value="">Todas</option>@for (broker of brokers; track broker.id) {<option [ngValue]="broker.id">{{broker.razaoSocial || broker.nomeFantasia || broker.cnpj}}</option>}</select>@if (brokerLoadFailed) {<p class="field-error">Corretoras indisponíveis; as posições ainda podem ser consultadas.</p>}</div>
     <div class="field"><label for="position-sort">Ordenar</label><select id="position-sort" formControlName="sort"><option value="ticker">Ativo</option><option value="broker">Corretora</option><option value="quantity">Maior quantidade</option></select></div>
     <button class="button-primary" type="submit">Aplicar</button><button class="button-quiet" type="button" (click)="clearFilters()">Limpar</button>
   </form>
 </section>
 
-<app-async-region [state]="facade.state()" label="posições detalhadas" emptyTitle="Nenhuma posição encontrada" emptyMessage="Não existem posições confirmadas para estes filtros." (retry)="load()">
+<app-async-region [state]="facade.state()" label="posições detalhadas" emptyTitle="Nenhuma posição aberta encontrada" emptyMessage="Não existem posições abertas para estes filtros." (retry)="load()">
   @if (response) {
     @if (visiblePositions.length) {
-      <section class="portfolio-panel" aria-labelledby="positions-title"><div class="collection-heading"><div><p class="section-kicker">{{ response.totalElements }} posição(ões)</p><h2 id="positions-title">Posições detalhadas</h2></div><app-data-status availability="AVAILABLE" /></div>
-      <app-responsive-data-list label="Posições detalhadas">
-        <table><thead><tr><th scope="col">Ativo</th><th scope="col">Corretora</th><th scope="col">Qtd.</th><th scope="col">Preço médio</th><th scope="col">Cotação</th><th scope="col">Valor atual</th><th scope="col">Resultado</th><th scope="col">Qualidade</th></tr></thead><tbody>
-          @for (position of visiblePositions; track position.positionId) { <tr><th scope="row"><strong>{{ position.ticker }}</strong><small>{{ position.market }} · {{ position.nativeCurrency }}</small></th><td>{{ position.brokerName }}</td><td class="numeric">{{ position.quantity }}</td><td class="numeric"><app-currency-value [metric]="position.averagePrice" /></td><td class="numeric"><app-currency-value [metric]="position.currentQuote" /></td><td class="numeric"><app-currency-value [metric]="position.marketValue" /></td><td class="numeric"><app-currency-value [metric]="position.unrealizedResult" /></td><td><app-data-status [availability]="position.quoteProvenance.availability" [reason]="position.quoteProvenance.reason" /></td></tr> }
-        </tbody></table>
-        <div mobile-cards>@for (position of visiblePositions; track position.positionId) { <article class="mobile-data-card"><header><div><strong>{{ position.ticker }}</strong><div class="muted">{{ position.market }} · {{ position.brokerName }}</div></div><app-data-status [availability]="position.quoteProvenance.availability" /></header><dl><div><dt>Quantidade</dt><dd>{{ position.quantity }}</dd></div><div><dt>Moeda</dt><dd>{{ position.nativeCurrency }}</dd></div><div><dt>Preço médio</dt><dd><app-currency-value [metric]="position.averagePrice" /></dd></div><div><dt>Cotação</dt><dd><app-currency-value [metric]="position.currentQuote" /></dd></div><div><dt>Valor atual</dt><dd><app-currency-value [metric]="position.marketValue" /></dd></div><div><dt>Resultado</dt><dd><app-currency-value [metric]="position.unrealizedResult" /></dd></div></dl><details class="provenance"><summary>Origem da cotação</summary><app-quote-provenance [provenance]="position.quoteProvenance" /></details></article> }</div>
-      </app-responsive-data-list></section>
-    } @else if (response.items.length) { <app-empty-state title="Nenhuma posição nesta página corresponde à busca" message="Ajuste a busca para ver as posições retornadas pelo servidor." /> }
+      <section class="portfolio-panel" aria-labelledby="positions-title">
+        <div class="collection-heading"><div><p class="section-kicker">{{response.totalElements}} posição(ões) aberta(s)</p><h2 id="positions-title">Posições por corretora e moeda</h2><p class="panel-note">Preço médio inclui os custos das compras. Resultados realizados e não realizados permanecem separados.</p></div></div>
+        <div class="position-grid">
+          @for (position of visiblePositions; track position.positionId) {
+            <article class="position-card" [attr.data-position-id]="position.positionId">
+              <header>
+                <div class="asset-heading"><strong>{{position.ticker}}</strong><span class="asset-name" [title]="position.assetName || 'Nome do ativo não informado'">{{position.assetName || 'Nome do ativo não informado'}}</span><div class="asset-badges"><span>{{position.nativeCurrency}}</span><span>{{position.market === 'BRASIL' ? 'Brasil' : 'Americano'}}</span></div></div>
+                @if (position.quoteProvenance.availability === 'STALE') {<span class="quote-status stale">Cotação desatualizada</span>} @else {<app-data-status [availability]="position.quoteProvenance.availability"/>}
+              </header>
+              <p class="broker-name" [title]="position.brokerName">{{position.brokerName}}</p>
+              <dl class="primary-metrics">
+                <div><dt>Quantidade</dt><dd>{{position.quantity}}</dd></div>
+                <div class="average-price"><dt>Preço médio</dt><dd><app-currency-value [metric]="position.averagePrice"/></dd><small>Inclui custos das compras</small></div>
+                <div><dt>Cotação atual</dt><dd><app-currency-value [metric]="position.currentQuote"/></dd><small class="quote-reference">@if (position.quoteProvenance.referenceAt) {<span>{{position.quoteProvenance.provider || 'Cotação'}} · <app-date-time-value [value]="position.quoteProvenance.referenceAt"/></span>} @else {<span>Referência indisponível</span>}</small></div>
+                <div><dt>Valor atual</dt><dd><app-currency-value [metric]="position.marketValue"/></dd></div>
+                <div class="unrealized-result" [attr.data-result]="resultLabel(position)"><dt>Resultado não realizado</dt><dd><app-currency-value [metric]="position.unrealizedResult"/> · <app-percentage-value [metric]="position.unrealizedResultPercentage"/></dd><small>{{resultLabel(position)}}</small></div>
+              </dl>
+              <footer class="secondary-metrics"><div><span>Custo da posição</span><app-currency-value [metric]="position.cost"/></div><div><span>Resultado realizado</span><app-currency-value [metric]="position.realizedResult"/></div></footer>
+            </article>
+          }
+        </div>
+      </section>
+    } @else if (response.items.length) {
+      <app-empty-state title="Nenhuma posição nesta página corresponde à busca" message="Ajuste a busca para ver as posições retornadas pelo servidor." />
+    }
     <app-pagination [page]="response.page" [totalPages]="response.totalPages" label="Páginas de posições" (pageChange)="changePage($event)" />
   }
 </app-async-region>

@@ -16,11 +16,11 @@
 
   <form [formGroup]="form" (ngSubmit)="adicionarCorretora()" [attr.aria-busy]="consultandoCnpj || consultandoCep || salvando">
     <fieldset class="flow-step"><legend><span>1</span>Informe o CNPJ</legend>
-      <div class="action-row"><div class="field"><label for="broker-cnpj">CNPJ</label>
+      <div class="action-row consultation-row"><div class="field"><label for="broker-cnpj">CNPJ</label>
         <input id="broker-cnpj" formControlName="cnpj" inputmode="numeric" autocomplete="off" maxlength="18" (input)="onCnpjInput($event)" aria-describedby="broker-cnpj-help broker-cnpj-error" [attr.aria-invalid]="form.controls.cnpj.invalid && form.controls.cnpj.touched">
         <small id="broker-cnpj-help" class="muted">Aceita 14 dígitos com ou sem pontuação.</small>
         @if (form.controls.cnpj.invalid && form.controls.cnpj.touched) { <p id="broker-cnpj-error" class="field-error">Informe um CNPJ válido.</p> }
-      </div><button class="button-primary" type="button" (click)="consultarCnpj()" [disabled]="consultandoCnpj">{{ consultandoCnpj ? 'Consultando…' : 'Consultar CNPJ' }}</button></div>
+      </div><button class="button-primary consultation-action" type="button" (click)="consultarCnpj()" [disabled]="consultandoCnpj">{{ consultandoCnpj ? 'Consultando…' : 'Consultar CNPJ' }}</button></div>
       @if (erroCnpj) { <div class="inline-error" role="alert"><p>{{ erroCnpj }}</p><button type="button" class="button-secondary" (click)="consultarCnpj()">Tentar novamente</button></div> }
     </fieldset>
 

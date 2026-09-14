@@ -21,7 +21,7 @@
       <div class="account"><span>{{ store.state().username }}</span><button type="button" (click)="logout()" [disabled]="loggingOut" [attr.aria-busy]="loggingOut">{{ loggingOut ? 'Saindo…' : 'Sair' }}</button></div>
     </header>
     <main #content id="conteudo" tabindex="-1"><router-outlet /></main>
-    <footer class="academic-disclaimer">Dados e cotações apresentados para acompanhamento da carteira.</footer>
+    <footer class="academic-disclaimer">Dados e cotações para acompanhamento da carteira; nenhuma ordem é enviada ao mercado.</footer>
   </div>
 
   <nav class="mobile-navigation" aria-label="Navegação principal móvel">

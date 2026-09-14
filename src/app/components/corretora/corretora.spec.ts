@@ -49,6 +49,12 @@ describe('CorretoraComponent', () => {
     expect(document.activeElement).toBe(input);
     expect(fixture.nativeElement.textContent).toContain('Nenhuma corretora cadastrada');
   });
+  it('keeps CNPJ control, consultation action and feedback in the structural consultation row', () => {
+    const row = fixture.nativeElement.querySelector('.consultation-row') as HTMLElement;
+    expect(row.querySelector('#broker-cnpj')).toBeTruthy();
+    expect(row.querySelector('.consultation-action')).toBeTruthy();
+    expect(row.querySelector('#broker-cnpj-help')).toBeTruthy();
+  });
 
   it('aplica máscara e bloqueia CNPJ inválido sem chamada', () => {
     const input = fixture.nativeElement.querySelector('#broker-cnpj') as HTMLInputElement;
@@ -60,6 +66,8 @@ describe('CorretoraComponent', () => {
 
   it('executa o fluxo completo, usa sugestão somente após escolha e impede duplo envio', () => {
     const component = fixture.componentInstance;
+    component.facade.apply([{ id: 9, cnpj: '00111222000133', razaoSocial: 'Corretora Anterior' }]);
+    fixture.detectChanges();
     component.form.controls.cnpj.setValue('11.222.333/0001-81'); component.consultarCnpj();
     const cnpj = http.expectOne('/api/corretoras/consultas/cnpj'); expect(cnpj.request.body).toEqual({ cnpj: '11222333000181' }); cnpj.flush(company); fixture.detectChanges();
     expect(component.form.controls.cep.value).toBe('');
@@ -70,8 +78,13 @@ describe('CorretoraComponent', () => {
     component.adicionarCorretora(); component.adicionarCorretora();
     const creates = http.match('/api/corretoras'); expect(creates).toHaveLength(1);
     expect(creates[0].request.body).toEqual({ cnpj: '11222333000181', cep: '01001000', numero: '10', complemento: 'Sala 2' });
-    creates[0].flush({ id: 1, cnpj: '11222333000181' }, { status: 201, statusText: 'Created' });
-    http.expectOne('/api/corretoras').flush([]); expect(component.mensagemSucesso).toContain('validação empresarial');
+    creates[0].flush({ id: 1, cnpj: '11222333000181', razaoSocial: 'Corretora Teste' }, { status: 201, statusText: 'Created' });
+    expect(component.corretoras.map(item => item.razaoSocial)).toEqual(['Corretora Anterior', 'Corretora Teste']);
+    http.expectNone(request => request.method === 'GET' && request.url === '/api/corretoras');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Corretora Anterior');
+    expect(fixture.nativeElement.textContent).toContain('Corretora Teste');
+    expect(component.mensagemSucesso).toContain('validação empresarial');
   });
 
   it('invalida endereço consultado quando o CEP muda', () => {

@@ -30,7 +30,9 @@ describe('ProtectedLayoutComponent', () => {
     expect(root.querySelector('.side-navigation a')?.textContent).toContain('Visão geral');
     expect(root.querySelector('.rail')).toBeTruthy();
     expect(root.querySelector('.mobile-navigation')).toBeTruthy();
-    expect(root.querySelector('.academic-disclaimer')?.textContent?.toLocaleLowerCase('pt-BR')).toContain('nenhuma ordem é enviada');
+    const disclaimer = root.querySelector('.academic-disclaimer')?.textContent?.toLocaleLowerCase('pt-BR') ?? '';
+    expect(disclaimer).toContain('acompanhamento da carteira');
+    expect(disclaimer).toContain('nenhuma ordem é enviada ao mercado');
     expect(root.querySelectorAll('.academic-disclaimer')).toHaveLength(1);
     (root.querySelector('.skip-link') as HTMLAnchorElement).click();
     expect(document.activeElement).toBe(root.querySelector('#conteudo'));
