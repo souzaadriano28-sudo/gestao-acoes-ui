@@ -2,4 +2,7 @@
 @media(max-width:47.5rem){.shell{display:flex;min-height:100svh;flex-direction:column}.story{min-height:auto;padding:var(--space-4) var(--space-5)}.story::after,.hero ul,.story-foot{display:none}.hero{margin:var(--space-4) 0 0}.hero h1{margin:var(--space-2) 0;font-size:1.55rem}.hero h1 br{display:none}.hero>p{margin:0;font-size:var(--font-size-sm)}.access{place-items:start;padding:var(--space-5)}.access-inner{margin:auto}h2{margin-top:var(--space-4);font-size:1.8rem}.lead{margin-bottom:var(--space-4)}}
 @media(max-width:22rem){.story,.access{padding-inline:var(--space-4)}.hero h1{font-size:1.35rem}.brand .mark{width:2.25rem;height:2.25rem}.security{font-size:.625rem}}
 @media(prefers-reduced-motion:reduce){.preparing span{animation:none}}
-.auth-action { text-align: center; font-size: var(--font-size-sm); margin-top: 1.5rem; } .auth-action a { color: var(--color-action); font-weight: 700; text-decoration: none; } .auth-action a:hover { text-decoration: underline; }
+.field-checkbox { display: flex; align-items: center; margin-top: 0.5rem; gap: 0.5rem; } .field-checkbox input { margin: 0; margin-top: -0.1rem; }
+.auth-action { text-align: center; font-size: var(--font-size-sm); margin-top: 1.5rem; }
+.auth-action a { color: var(--color-action); font-weight: 700; text-decoration: none; }
+.auth-action a:hover { text-decoration: underline; }

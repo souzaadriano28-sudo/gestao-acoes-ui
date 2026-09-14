@@ -10,7 +10,6 @@ export class AuthStore {
   private sessionRequest?: Observable<boolean>;
   constructor(private readonly auth: AuthService) {}
   ensureSession(): Observable<boolean> {
-    if (this.stateValue().status === 'authenticated') return of(true);
     if (this.sessionRequest) return this.sessionRequest;
     this.stateValue.set({ status: 'checking', username: null });
     this.sessionRequest = this.auth.session().pipe(

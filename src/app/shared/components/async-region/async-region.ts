@@ -11,7 +11,7 @@ import { PartialDataStateComponent } from '../partial-data-state/partial-data-st
   template: `<section [attr.aria-busy]="state.status === 'loading'" [attr.aria-label]="label">
     @switch (state.status) {
       @case ('idle') { }
-      @case ('loading') { <app-loading-state [label]="'Carregando ' + label" /> }
+      @case ('loading') { @if (state.previous === undefined) { <app-loading-state [label]="'Carregando ' + label" /> } }
       @case ('empty') { <app-empty-state [title]="emptyTitle" [message]="emptyMessage"><ng-content select="[empty-action]" /></app-empty-state> }
       @case ('unavailable') { <app-error-summary title="Dados indisponíveis" [message]="state.message" [retryable]="true" (retry)="retry.emit()" /> }
       @case ('error') { <app-error-summary [message]="state.message" [retryable]="true" (retry)="retry.emit()" /> @if (state.previous !== undefined) { <app-partial-data-state message="A atualização falhou; os últimos dados confirmados permanecem visíveis." /> } }

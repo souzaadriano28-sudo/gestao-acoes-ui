@@ -1,0 +1,24 @@
+<a class="skip" href="#registro">Pular para o formulário de registro</a>
+<main class="shell">
+  <section class="story" aria-labelledby="apresentacao">
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i></span><div><strong>Atlas</strong><span>Carteira</span></div></div>
+    <div class="hero"><p class="eyebrow">Crie sua carteira</p><h1 id="apresentacao">Comece a gerenciar<br>seus investimentos.</h1><p>Crie sua conta para simular operações em um ambiente seguro.</p></div>
+    <p class="story-foot">Ambiente acadêmico · Dados simulados</p>
+  </section>
+
+  <section class="access" id="registro" aria-labelledby="titulo-registro"><div class="access-inner">
+    <span class="security">Nova conta</span><h2 id="titulo-registro">Crie sua conta</h2><p class="lead">Preencha os dados abaixo.</p>
+    @if(message()){<div #errorBox class="feedback" role="alert" tabindex="-1"><strong>Não foi possível criar a conta</strong>{{message()}}</div>}
+    @if(success()){<div class="feedback ok" role="status"><strong>Conta criada</strong>Entrando…</div>}
+    @if(preparing()){<div class="preparing" role="status"><span></span>Preparando…</div>}
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
+      <div class="field"><label for="username">Usuário</label><input class="control" id="username" formControlName="username" autocomplete="username" placeholder="Seu nome de usuário" [attr.aria-invalid]="form.controls.username.invalid && form.controls.username.touched" [disabled]="pending()"></div>
+      <div class="field"><label for="email">E-mail</label><input class="control" type="email" id="email" formControlName="email" autocomplete="email" placeholder="Seu e-mail" [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched" [disabled]="pending()"></div>
+      <div class="field"><label for="password">Senha</label><div class="control-wrap"><input class="control password" id="password" formControlName="password" [type]="passwordVisible()?'text':'password'" autocomplete="new-password" placeholder="Sua senha (mínimo 12 caracteres)" [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched" [disabled]="pending()"><button class="reveal" type="button" (click)="togglePassword()" [disabled]="pending()">{{passwordVisible()?'Ocultar':'Mostrar'}}</button></div></div>
+      <div class="field"><label for="passwordConfirmation">Confirmar senha</label><input class="control password" id="passwordConfirmation" formControlName="passwordConfirmation" [type]="passwordVisible()?'text':'password'" autocomplete="new-password" placeholder="Confirme sua senha" [attr.aria-invalid]="form.controls.passwordConfirmation.invalid && form.controls.passwordConfirmation.touched" [disabled]="pending()"></div>
+      <div class="field-checkbox"><label><input type="checkbox" formControlName="termsAccepted" [disabled]="pending()"> Aceito os termos de uso e ciência de que é um ambiente simulado.</label></div>
+      <button class="submit" type="submit" [disabled]="pending() || preparing()">{{pending()?'Criando conta…':'Criar conta'}}</button>
+    </form>
+    <p class="auth-action">Já tem uma conta? <a routerLink="/login">Entrar</a></p>
+  </div></section>
+</main>

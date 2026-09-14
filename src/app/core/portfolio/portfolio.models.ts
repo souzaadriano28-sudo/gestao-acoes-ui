@@ -43,6 +43,7 @@ export interface DetailedPosition {
   positionId: number;
   assetId: number;
   ticker: string;
+  assetName: string | null;
   market: Market;
   brokerId: number;
   brokerName: string;
@@ -53,6 +54,8 @@ export interface DetailedPosition {
   currentQuote: MoneyMetric;
   marketValue: MoneyMetric;
   unrealizedResult: MoneyMetric;
+  unrealizedResultPercentage: PercentageMetric;
+  realizedResult: MoneyMetric;
   quoteProvenance: QuoteProvenance;
 }
 
@@ -91,6 +94,16 @@ export interface DashboardReadModel {
   recentMovements: Movement[];
   quoteSources: QuoteProvenance[];
   exchangeSource: ExchangeProvenance;
+  nativeCurrencySummaries?: CurrencySummary[];
+}
+
+/** Totals calculated by the backend in one native currency; never a cross-currency sum. */
+export interface CurrencySummary {
+  currency: string;
+  patrimony: MoneyMetric;
+  cost: MoneyMetric;
+  unrealizedResult: MoneyMetric;
+  unrealizedResultPercentage: PercentageMetric;
 }
 
 export interface PositionQuery {

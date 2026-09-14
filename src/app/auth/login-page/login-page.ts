@@ -1,16 +1,16 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { AuthStore } from '../auth.store';
 import { safeReturnUrl } from '../auth.interceptor';
 
-@Component({selector:'app-login-page',standalone:true,imports:[CommonModule,ReactiveFormsModule],templateUrl:'./login-page.html',styleUrl:'./login-page.css',changeDetection:ChangeDetectionStrategy.OnPush})
+@Component({selector:'app-login-page',standalone:true,imports:[CommonModule,ReactiveFormsModule,RouterLink],templateUrl:'./login-page.html',styleUrl:'./login-page.css',changeDetection:ChangeDetectionStrategy.OnPush})
 export class LoginPageComponent implements OnInit {
   @ViewChild('errorBox') errorBox?:ElementRef<HTMLElement>;
-  readonly form=new FormGroup({username:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(64)]}),password:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(128)]})});
+  readonly form=new FormGroup({username:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(255)]}),password:new FormControl('',{nonNullable:true,validators:[Validators.required,Validators.maxLength(128)]})});
   readonly passwordVisible=signal(false); readonly pending=signal(false); readonly preparing=signal(true); readonly message=signal(''); readonly success=signal(false);
   private returnUrl='/dashboard';
   constructor(private readonly auth:AuthService,private readonly store:AuthStore,private readonly route:ActivatedRoute,private readonly router:Router){}
@@ -23,7 +23,7 @@ export class LoginPageComponent implements OnInit {
   submit():void{
     if(this.pending())return;
     this.message.set('');this.success.set(false);
-    if(this.form.invalid){this.form.markAllAsTouched();this.message.set('Informe usuário e senha para continuar.');this.focusError();return;}
+    if(this.form.invalid){this.form.markAllAsTouched();this.message.set('Informe usuário ou e-mail e senha para continuar.');this.focusError();return;}
     this.pending.set(true);const {username,password}=this.form.getRawValue();
     this.auth.login(username,password).pipe(finalize(()=>this.pending.set(false))).subscribe({
       next:session=>{this.store.setAuthenticated(session);this.success.set(true);setTimeout(()=>void this.router.navigateByUrl(this.returnUrl),250);},

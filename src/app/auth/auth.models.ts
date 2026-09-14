@@ -1,5 +1,12 @@
 export interface CsrfResponse { token: string; headerName: string; parameterName: string; }
 export interface SessionResponse { authenticated: true; username: string; }
+export interface RegistrationRequest {
+  username: string;
+  email: string;
+  password: string;
+  passwordConfirmation: string;
+  termsAccepted: boolean;
+}
 export type AuthState =
   | { status: 'initial' | 'checking' | 'anonymous' | 'expired'; username: null }
   | { status: 'authenticated'; username: string };

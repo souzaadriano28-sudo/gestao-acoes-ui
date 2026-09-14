@@ -16,4 +16,12 @@ describe('AuthService',()=>{
     expect(localStorage.length).toBe(0);expect(sessionStorage.length).toBe(0);
   });
   it('faz logout por POST e prepara novo CSRF',()=>{service.fetchCsrf().subscribe();http.expectOne('/api/auth/csrf').flush({token:'one',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});service.logout().subscribe();const logout=http.expectOne('/api/auth/logout');expect(logout.request.method).toBe('POST');logout.flush(null);http.expectOne('/api/auth/csrf').flush({token:'two',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});});
+  it('cadastra com CSRF e renova o token sem persistir credenciais',()=>{
+    service.register({username:'atlas',email:'atlas@example.test',password:'valid-test-password',passwordConfirmation:'valid-test-password',termsAccepted:true}).subscribe(session=>expect(session.username).toBe('atlas'));
+    http.expectOne('/api/auth/csrf').flush({token:'before',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});
+    const register=http.expectOne('/api/auth/register');expect(register.request.method).toBe('POST');expect(register.request.body.termsAccepted).toBe(true);
+    register.flush({authenticated:true,username:'atlas'});
+    http.expectOne('/api/auth/csrf').flush({token:'after',headerName:'X-CSRF-TOKEN',parameterName:'_csrf'});
+    expect(localStorage.length).toBe(0);expect(sessionStorage.length).toBe(0);
+  });
 });

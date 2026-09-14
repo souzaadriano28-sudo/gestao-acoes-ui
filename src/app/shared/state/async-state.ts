@@ -53,6 +53,12 @@ export class AsyncReadFacade<T> {
     });
   }
 
+  /** Applies a confirmed mutation result without a transient second read. */
+  apply(data: T, isEmpty: (data: T) => boolean = () => false): void {
+    this.active?.unsubscribe();
+    this.value.set(isEmpty(data) ? asyncState.empty(data) : asyncState.success(data));
+  }
+
   setUnavailable(message: string): void { this.value.set(asyncState.unavailable(message)); }
   destroy(): void { this.active?.unsubscribe(); }
 }

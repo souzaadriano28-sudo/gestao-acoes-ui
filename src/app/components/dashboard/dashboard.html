@@ -1,47 +1,33 @@
 <app-page-header title="Sua carteira" eyebrow="Visão geral" description="Posições e valores confirmados pelo backend.">
-  <button type="button" class="button-secondary" aria-label="Atualizar dados" (click)="refresh()" [disabled]="facade.state().status === 'loading'"><app-atlas-icon name="refresh" /> Atualizar</button>
+  <button type="button" class="button-secondary dashboard-refresh" (click)="refreshQuotes()" [disabled]="refreshingQuotes"><app-atlas-icon name="refresh" /> {{refreshingQuotes ? 'Atualizando…' : 'Atualizar'}}</button>
   <a class="button-primary" routerLink="/operacoes"><app-atlas-icon name="plus" /> Registrar operação</a>
 </app-page-header>
-
-<app-async-region [state]="facade.state()" label="dashboard da carteira" emptyTitle="Sua carteira começa aqui" emptyMessage="Cadastre uma corretora e um ativo antes da primeira compra simulada." (retry)="refresh()">
-  <div empty-action class="empty-actions"><a class="button-secondary" routerLink="/corretoras">Cadastrar corretora</a><a class="button-secondary" routerLink="/acoes">Cadastrar ativo</a><a class="button-primary" routerLink="/operacoes">Registrar compra</a></div>
-  @if (data; as dashboard) {
-    @if (hasPartialData) { <app-partial-data-state message="Parte dos valores não pôde ser concluída. Os dados confirmados continuam visíveis; nenhum total parcial é apresentado como completo." /> }
-    <section class="summary-grid" aria-label="Resumo financeiro">
-      <article class="patrimony-card" [attr.data-availability]="dashboard.patrimony.availability">
-        <span class="contour" aria-hidden="true"></span>
-        <div class="hero-heading"><h2>Patrimônio estimado</h2><app-data-status [availability]="dashboard.patrimony.availability" [reason]="dashboard.patrimony.reason" /></div>
-        <p class="hero-value"><app-currency-value [metric]="dashboard.patrimony" /></p>
-        <p>Consolidado em {{ dashboard.presentationCurrency }} · <app-date-time-value [value]="dashboard.asOf" /></p>
-        @if (dashboard.patrimony.availability !== 'AVAILABLE') { <strong class="hero-impact">{{ dashboard.patrimony.availability === 'STALE' ? 'Valor mantido com referência anterior.' : 'Total não concluído com segurança.' }}</strong> }
-      </article>
-      <app-summary-card label="Custo das posições" [metric]="dashboard.cost" context="Base investida" />
-      <app-summary-card label="Resultado não realizado" [metric]="dashboard.unrealizedResult" context="Diferença não realizada" />
-      <article class="count-card"><h2>Posições ativas</h2><p>{{ dashboard.positionCount }}</p><small>ativo–corretora</small></article>
+<p class="refresh-message" role="status">{{refreshMessage}}</p>
+<app-async-region [state]="facade.state()" label="dashboard da carteira" emptyTitle="Sua carteira começa aqui" emptyMessage="Cadastre uma corretora e um ativo antes do primeiro registro." (retry)="refresh()">
+@if (data; as dashboard) {
+  <section class="summary-grid" [class.mixed-summary]="isMixedCurrency(dashboard)">
+    <article class="patrimony-card" [attr.data-availability]="isMixedCurrency(dashboard) && nativeTotalsUsable(dashboard) ? 'AVAILABLE' : dashboard.patrimony.availability">
+      <div class="hero-heading"><h2>{{isMixedCurrency(dashboard) ? 'Patrimônio por moeda' : 'Patrimônio estimado'}}</h2><app-data-status [availability]="isMixedCurrency(dashboard) && nativeTotalsUsable(dashboard) ? 'AVAILABLE' : dashboard.patrimony.availability" /></div>
+      @if (isMixedCurrency(dashboard)) {
+        @for (summary of nativeSummaries(dashboard); track summary.currency) { <p class="hero-value native-value"><app-currency-value [metric]="summary.patrimony" /></p> }
+        @if (dashboard.patrimony.value !== null) { <small>Estimativa em BRL: <app-currency-value [metric]="dashboard.patrimony" /></small> } @else { <small>Totais mantidos nas moedas originais</small> }
+      } @else { <p class="hero-value"><app-currency-value [metric]="dashboard.patrimony" /></p>@if (dashboard.patrimony.availability === 'STALE') { <small>Cotação desatualizada</small> }<p>Consolidado em {{dashboard.presentationCurrency}} · <app-date-time-value [value]="dashboard.asOf" /></p> }
+    </article>
+    <article class="summary-card"><h2>Custo das posições</h2>@if(isMixedCurrency(dashboard)){@for(summary of nativeSummaries(dashboard);track summary.currency){<p class="native-value"><app-currency-value [metric]="summary.cost"/></p>}}@else{<app-currency-value [metric]="dashboard.cost"/>}<small>Base investida</small></article>
+    <article class="summary-card"><h2>Resultado não realizado</h2>@if(isMixedCurrency(dashboard)){@for(summary of nativeSummaries(dashboard);track summary.currency){<p class="native-value"><app-currency-value [metric]="summary.unrealizedResult"/></p>}}@else{<app-currency-value [metric]="dashboard.unrealizedResult"/>}<small>Diferença não realizada</small></article>
+    <article class="count-card"><h2>Posições ativas</h2><p>{{dashboard.positionCount}}</p><small>ativo–corretora–moeda</small></article>
+  </section>
+  <details class="quality compact-quality source-disclosure">
+    <summary><span>Dados atualizados em <app-date-time-value [value]="dashboard.asOf" /></span><span class="exchange-warning">@if (isMixedCurrency(dashboard) && dashboard.exchangeSource.availability === 'UNAVAILABLE') { Conversão para BRL indisponível }</span><strong class="source-trigger">Ver fontes</strong></summary>
+    <section class="quality-details source-table"><h2>Origem dos dados</h2><p>Fontes utilizadas nas cotações e na conversão monetária.</p><div class="source-head"><span>Informação</span><span>Fonte</span><span>Status</span><span>Atualização</span></div>@for(position of sourcePositions(dashboard);track position.assetId + ':' + position.quoteProvenance.provider){<div class="source-row"><span data-label="Informação">Cotação {{position.ticker}}</span><span data-label="Fonte">{{position.quoteProvenance.provider === 'TWELVE_DATA' ? 'Twelve Data' : position.quoteProvenance.provider}}</span><span data-label="Status"><app-data-status [availability]="position.quoteProvenance.availability"/></span><span data-label="Atualização">@if(position.quoteProvenance.referenceAt){Referência <app-date-time-value [value]="position.quoteProvenance.referenceAt"/> · Consultado em <app-date-time-value [value]="position.quoteProvenance.fetchedAt"/>}@else{—}</span></div>}@if (isMixedCurrency(dashboard)) {<div class="source-row"><span data-label="Informação">Câmbio USD/BRL</span><span data-label="Fonte">Banco Central — PTAX</span><span data-label="Status"><app-data-status [availability]="dashboard.exchangeSource.availability"/></span><span data-label="Atualização">@if (hasUsableExchangeRate(dashboard.exchangeSource)) {<strong>{{exchangeRateText(dashboard.exchangeSource)}}</strong><br>Referência <app-date-time-value [value]="dashboard.exchangeSource.referenceAt"/> · Consultado em <app-date-time-value [value]="dashboard.exchangeSource.fetchedAt"/>} @else {—}</span></div>@if(dashboard.exchangeSource.availability === 'UNAVAILABLE'){<small class="exchange-note">Sem conversão disponível. Os valores permanecem separados em BRL e USD.</small>}}</section>
+  </details>
+  <div class="content-grid">
+    <section class="panel positions-panel"><div class="panel-heading"><div><p class="section-kicker">Composição atual</p><h2>Principais posições</h2></div><a class="button-quiet" routerLink="/carteira">Ver carteira</a></div>
+      @if (dashboard.positions.length) { <app-responsive-data-list label="Principais posições"><table><thead><tr><th>Ativo</th><th>Corretora</th><th>Quantidade</th><th>Preço médio</th><th>Valor atual</th><th class="unrealized-heading">Resultado não realizado</th></tr></thead><tbody>@for(position of dashboard.positions;track positionKey(position)){<tr><th [title]="position.assetName || position.ticker"><strong>{{position.ticker}}</strong><small>{{position.assetName}} · {{position.nativeCurrency}}</small></th><td class="broker" [title]="position.brokerName">{{position.brokerName}}</td><td class="numeric">{{position.quantity}}</td><td class="numeric"><app-currency-value [metric]="position.averagePrice"/></td><td class="numeric"><app-currency-value [metric]="position.marketValue"/></td><td class="numeric"><app-currency-value [metric]="position.unrealizedResult"/></td></tr>}</tbody></table></app-responsive-data-list>} @else {<app-empty-state title="Nenhuma posição ativa" message="As posições confirmadas aparecerão após uma compra registrada."/>}
     </section>
-
-    <div class="content-grid">
-      <section class="panel positions-panel" aria-labelledby="dashboard-positions-title">
-        <div class="panel-heading"><div><p class="section-kicker">Composição atual</p><h2 id="dashboard-positions-title">Principais posições</h2></div><a class="button-quiet" routerLink="/carteira">Ver carteira</a></div>
-        @if (dashboard.positions.length) {
-          <app-responsive-data-list label="Principais posições">
-            <table><thead><tr><th scope="col">Ativo</th><th scope="col">Quantidade</th><th scope="col">Preço médio</th><th scope="col">Valor atual</th><th scope="col">Resultado</th></tr></thead><tbody>@for (position of dashboard.positions; track positionKey(position)) { <tr><th scope="row"><strong>{{ position.ticker }}</strong><small>{{ position.market }} · {{ position.nativeCurrency }}</small></th><td class="numeric">{{ position.quantity }}</td><td class="numeric"><app-currency-value [metric]="position.averagePrice" /></td><td class="numeric"><app-currency-value [metric]="position.marketValue" /></td><td class="numeric"><app-currency-value [metric]="position.unrealizedResult" /></td></tr> }</tbody></table>
-            <div mobile-cards>@for (position of dashboard.positions; track positionKey(position)) { <article class="mobile-data-card"><header><div><strong>{{ position.ticker }}</strong><div class="muted">{{ position.market }} · {{ position.brokerName }}</div></div><app-currency-value [metric]="position.marketValue" /></header><dl><div><dt>Quantidade</dt><dd>{{ position.quantity }}</dd></div><div><dt>Moeda</dt><dd>{{ position.nativeCurrency }}</dd></div><div><dt>Preço médio</dt><dd><app-currency-value [metric]="position.averagePrice" /></dd></div><div><dt>Resultado</dt><dd><app-currency-value [metric]="position.unrealizedResult" /></dd></div></dl></article> }</div>
-          </app-responsive-data-list>
-        } @else { <app-empty-state title="Nenhuma posição ativa" message="As posições confirmadas aparecerão após uma compra simulada." /> }
-      </section>
-
-      <section class="panel movement-panel" aria-labelledby="recent-title"><div class="panel-heading"><div><p class="section-kicker">Atividade</p><h2 id="recent-title">Movimentações</h2></div><a class="button-quiet" routerLink="/operacoes" [queryParams]="{ view: 'history' }">Ver todas</a></div>
-        @if (dashboard.recentMovements.length) { <ul class="movement-list">@for (movement of dashboard.recentMovements; track movementKey(movement)) { <li><span class="movement-symbol" [attr.data-type]="movement.type" aria-hidden="true">{{ movement.type === 'COMPRA' ? '↓' : '↑' }}</span><div><strong>{{ movement.type === 'COMPRA' ? 'Compra' : 'Venda' }} · {{ movement.ticker }}</strong><small><app-date-time-value [value]="movement.recordedAt" /> · {{ movement.brokerName }}</small></div><span>{{ movement.quantity }} × <app-currency-value [metric]="movement.unitPrice" /></span></li> }</ul> } @else { <app-empty-state title="Nenhuma movimentação" message="O histórico confirmado ainda está vazio." /> }
-      </section>
-    </div>
-
-    <details class="quality disclosure" [open]="qualityAvailability !== 'AVAILABLE'">
-      <summary><div><app-data-status [availability]="qualityAvailability" /><span><strong>{{ qualitySummary }}</strong><small>Leitura de <app-date-time-value [value]="dashboard.asOf" /></small></span></div><span class="summary-hint">Fonte, referência, coleta e freshness</span></summary>
-      <div class="quality-details">
-        @for (source of dashboard.quoteSources; track $index) { <app-quote-provenance [provenance]="source" /> }
-        <article class="exchange-source"><div><strong>Câmbio {{ dashboard.exchangeSource.baseCurrency }}/{{ dashboard.exchangeSource.quoteCurrency }}</strong><app-data-status [availability]="dashboard.exchangeSource.availability" [reason]="dashboard.exchangeSource.reason" /></div><p>{{ dashboard.exchangeSource.provider || 'Origem não informada' }}@if (dashboard.exchangeSource.referenceKind) { · {{ dashboard.exchangeSource.referenceKind }} }</p><dl><div><dt>Referência</dt><dd><app-date-time-value [value]="dashboard.exchangeSource.referenceAt" /></dd></div><div><dt>Coleta</dt><dd><app-date-time-value [value]="dashboard.exchangeSource.fetchedAt" /></dd></div></dl></article>
-      </div>
-    </details>
-  }
+    <section class="panel movement-panel"><div class="panel-heading"><div><p class="section-kicker">Atividade</p><h2>Movimentações</h2></div><a class="button-quiet" routerLink="/operacoes" [queryParams]="{view:'history'}">Ver todas</a></div>
+      @if(recentOperations.length){<ul class="movement-list">@for(operation of recentOperations;track operationKey(operation)){<li><span class="movement-symbol" [attr.data-type]="operation.tipo">{{operation.tipo === 'COMPRA' ? '↓' : '↑'}}</span><div><strong>{{operation.tipo === 'COMPRA' ? 'Compra' : 'Venda'}} · {{operation.ticker}}</strong><small><app-date-time-value [value]="operation.dataHora"/> · {{operation.corretora}}</small></div><span>{{operation.quantidade}} × <app-currency-value [metric]="money(operation.precoUnitario,operation.moeda)"/><br>Total <app-currency-value [metric]="money(operation.valorTotal,operation.moeda)"/>@if(operation.tipo === 'VENDA'){<br>Resultado <app-currency-value [metric]="money(operation.resultadoRealizado,operation.moeda)"/>}</span></li>}</ul>} @else {<app-empty-state title="Nenhuma movimentação" message="O histórico confirmado ainda está vazio."/>}
+    </section>
+  </div>
+}
 </app-async-region>

@@ -1,36 +1,105 @@
-<app-page-header title="Operações" eyebrow="Registros simulados" description="Registre uma compra ou venda; o preço é consultado pelo backend.">
-  <button type="button" class="button-secondary" (click)="reconcile()" [disabled]="pending">Reconciliar</button>
+<app-page-header title="Operações" description="Registros históricos de compras e vendas.">
+  <button class="button-primary" (click)="openCreate($event)">+ Adicionar operação</button>
 </app-page-header>
 
-<div class="operations-grid">
-  <section class="panel operation-panel" aria-labelledby="operation-title">
-    <div class="panel-heading"><div class="step-heading"><span aria-hidden="true">1</span><div><h2 id="operation-title">Nova operação</h2><p>Revise os dados antes de confirmar.</p></div></div></div>
-    @if (choicesError) { <app-error-summary title="Opções indisponíveis" [message]="choicesError" (retry)="loadChoices()" /> }
-    @if (message) { <p class="status-message" [attr.data-tone]="outcome === 'success' ? 'success' : outcome === 'refused' || outcome === 'conflict' ? 'error' : 'warning'" [attr.role]="outcome === 'refused' || outcome === 'conflict' ? 'alert' : 'status'" aria-live="polite">{{ message }}</p> }
-    @if (mustReconcile) { <button type="button" class="button-secondary reconcile" (click)="reconcile()" [disabled]="pending">Reconciliar sem reenviar</button> }
-    @if (!reviewing) {
-      <form [formGroup]="form" (ngSubmit)="review()" class="operation-form">
-        <fieldset class="type-selector"><legend>Tipo</legend><label><input type="radio" aria-label="Compra simulada" formControlName="type" value="COMPRA"> Compra</label><label><input type="radio" aria-label="Venda simulada" formControlName="type" value="VENDA"> Venda</label></fieldset>
-        <div class="field"><label for="operation-asset">Ativo</label><select id="operation-asset" formControlName="assetId" [attr.aria-invalid]="form.controls.assetId.invalid && form.controls.assetId.touched"><option value="">Selecione</option>@for (asset of assets; track asset.id) { <option [ngValue]="asset.id">{{ asset.ticker }} · {{ asset.mercado }}</option> }</select>@if (form.controls.assetId.invalid && form.controls.assetId.touched) { <p class="field-error">Selecione um ativo cadastrado.</p> }</div>
-        <div class="field"><label for="operation-broker">Corretora</label><select id="operation-broker" formControlName="brokerId" [attr.aria-invalid]="form.controls.brokerId.invalid && form.controls.brokerId.touched"><option value="">Selecione</option>@for (broker of brokers; track broker.id) { <option [ngValue]="broker.id">{{ broker.razaoSocial || broker.nomeFantasia || broker.cnpj }}</option> }</select>@if (form.controls.brokerId.invalid && form.controls.brokerId.touched) { <p class="field-error">Selecione uma corretora cadastrada.</p> }</div>
-        <div class="field"><label for="operation-quantity">Quantidade</label><input id="operation-quantity" aria-label="Quantidade inteira" type="number" inputmode="numeric" min="1" max="2147483647" step="1" formControlName="quantity" [attr.aria-invalid]="form.controls.quantity.invalid && form.controls.quantity.touched" aria-describedby="operation-quantity-help operation-quantity-error"><small id="operation-quantity-help" class="muted">Inteira e positiva.@if (form.controls.type.value === 'VENDA' && availableQuantity !== undefined) { Posição confirmada: {{ availableQuantity }}. }</small>@if (form.controls.quantity.invalid && form.controls.quantity.touched) { <p id="operation-quantity-error" class="field-error">Informe uma quantidade inteira positiva dentro do limite.</p> } @else if (fieldErrors['qtd']) { <p id="operation-quantity-error" class="field-error">{{ fieldErrors['qtd'] }}</p> }</div>
-        <div class="market-readonly"><span>Mercado</span><strong id="operation-market">{{ selectedAsset?.mercado || 'Selecione um ativo' }}</strong></div>
-        <p class="operation-note">Preço consultado no envio. Nenhuma ordem será executada.</p>
-        <button class="button-primary submit-operation" type="submit" [disabled]="choicesLoading || mustReconcile">Revisar {{ form.controls.type.value === 'COMPRA' ? 'compra' : 'venda' }} simulada</button>
-      </form>
-    } @else {
-      <section class="review" aria-labelledby="review-title"><h3 id="review-title">Revise antes de confirmar</h3><dl><div><dt>Tipo</dt><dd>{{ form.controls.type.value === 'COMPRA' ? 'Compra simulada' : 'Venda simulada' }}</dd></div><div><dt>Ativo</dt><dd>{{ selectedAsset?.ticker }} · {{ selectedAsset?.mercado }}</dd></div><div><dt>Corretora</dt><dd>{{ selectedBroker?.razaoSocial || selectedBroker?.nomeFantasia || selectedBroker?.cnpj }}</dd></div><div><dt>Quantidade</dt><dd>{{ form.controls.quantity.value }}</dd></div><div><dt>Preço</dt><dd>Consultado pelo backend; não garantido.</dd></div></dl><p class="review-warning">Confirma apenas um registro acadêmico. Nenhuma ordem será enviada ao mercado.</p><div class="review-actions"><button type="button" class="button-quiet" (click)="cancelReview()" [disabled]="pending">Voltar e editar</button><button type="button" class="button-primary" (click)="confirm()" [disabled]="pending" [attr.aria-busy]="pending">{{ pending ? 'Enviando uma vez…' : 'Confirmar registro simulado' }}</button></div></section>
+<section class="panel history">
+  <div class="card-header">
+    <div><p class="section-kicker">Histórico</p><h2>Operações registradas</h2></div>
+    <button class="button-secondary" (click)="loadOperations()">Atualizar</button>
+  </div>
+  <form [formGroup]="filters" class="filters-toolbar" (ngSubmit)="applyFilters()">
+    <input class="form-control search" formControlName="ticker" placeholder="Buscar ticker">
+    <select class="form-control" formControlName="type"><option value="">Todos os tipos</option><option value="COMPRA">Compra</option><option value="VENDA">Venda</option></select>
+    <select class="form-control broker-filter" formControlName="brokerId"><option value="">Todas as corretoras</option>@for (broker of brokers; track broker.id) {<option [ngValue]="broker.id">{{broker.razaoSocial}}</option>}</select>
+    <button class="button-primary">Filtrar</button>
+    <button type="button" class="button-secondary" (click)="toggleFilters()">Mais filtros</button>
+    @if (filtersExpanded) {
+      <input class="form-control" type="date" formControlName="from">
+      <input class="form-control" type="date" formControlName="to">
     }
-  </section>
+  </form>
+  <p class="message-slot" role="status">{{message}}</p>
+  <app-async-region [state]="operationsFacade.state()" label="histórico" emptyTitle="Nenhuma operação encontrada">
+    @if (history; as entries) {
+      <div class="table-shell">
+        <table>
+          <thead><tr><th>Data</th><th>Operação</th><th>Ativo</th><th>Corretora</th><th class="numeric">Quantidade × preço</th><th class="numeric">Total</th><th class="expand-col"></th></tr></thead>
+          <tbody>
+            @for (operation of entries; track operation.id) {
+              <tr [attr.data-operation-id]="operation.id">
+                <td class="date"><time [attr.datetime]="operation.dataHora">{{operationDateTime(operation.dataHora)}}</time></td>
+                <td><span class="operation-badge" [attr.data-type]="operation.tipo">{{operation.tipo === 'COMPRA' ? 'Compra' : 'Venda'}}</span></td>
+                <td><strong>{{operation.ticker}}</strong></td>
+                <td class="broker" [title]="operation.corretora">{{operation.corretora}}</td>
+                <td class="numeric">{{operation.quantidade}} × <app-currency-value [metric]="money(operation.precoUnitario, operation.moeda)"/></td>
+                <td class="numeric"><app-currency-value [metric]="money(operation.valorTotal, operation.moeda)"/></td>
+                <td class="expand-cell">
+                  <button class="icon-button chevron" type="button" [attr.aria-expanded]="detailId === operation.id" [attr.aria-controls]="'operation-details-' + operation.id" aria-label="Ver detalhes da operação" (click)="toggleDetails(operation.id)">
+                    {{detailId === operation.id ? '⌃' : '⌄'}}
+                  </button>
+                </td>
+              </tr>
+              @if (detailId === operation.id) {
+                <tr class="detail-row" [id]="'operation-details-' + operation.id">
+                  <td colspan="7">
+                    <dl class="operation-details">
+                      <div><dt>Data e hora</dt><dd><time [attr.datetime]="operation.dataHora">{{operationDateTime(operation.dataHora)}}</time></dd></div>
+                      <div><dt>Moeda</dt><dd>{{operation.moeda}}</dd></div>
+                      <div><dt>Valor bruto</dt><dd><app-currency-value [metric]="money(operation.valorBruto, operation.moeda)"/></dd></div>
+                      <div><dt>Corretagem</dt><dd><app-currency-value [metric]="money(operation.corretagem, operation.moeda)"/></dd></div>
+                      <div><dt>Taxas</dt><dd><app-currency-value [metric]="money(operation.taxas, operation.moeda)"/></dd></div>
+                      <div><dt>Impostos</dt><dd><app-currency-value [metric]="money(operation.impostos, operation.moeda)"/></dd></div>
+                      <div><dt>Outros custos</dt><dd><app-currency-value [metric]="money(operation.outrosCustos, operation.moeda)"/></dd></div>
+                      @if (operation.tipo === 'VENDA') {<div><dt>Resultado realizado</dt><dd><app-currency-value [metric]="money(operation.resultadoRealizado, operation.moeda)"/></dd></div>}
+                      @if (operation.observacao) {<div class="wide"><dt>Observação</dt><dd>{{operation.observacao}}</dd></div>}
+                    </dl>
+                    <div class="detail-actions">
+                      <button class="button-secondary" (click)="beginEdit(operation)">Editar</button>
+                      <button class="button-danger" (click)="requestDelete(operation.id)">Excluir</button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </app-async-region>
+</section>
 
-  <section class="panel history" aria-labelledby="movement-title">
-    <div class="panel-heading"><div><p class="section-kicker">Histórico</p><h2 id="movement-title">Movimentações</h2></div><button type="button" class="button-secondary icon-refresh" (click)="loadMovements()" aria-label="Atualizar histórico">↻</button></div>
-    <div class="movement-filter">
-      <button class="filter-toggle" type="button" (click)="toggleFilters()" [attr.aria-expanded]="filtersExpanded" aria-controls="movement-filter-fields"><strong>Filtros avançados</strong><span>{{ activeFilterCount ? activeFilterCount + ' ativo(s)' : 'Nenhum ativo' }}</span></button>
-      <form id="movement-filter-fields" [formGroup]="filters" (ngSubmit)="applyFilters()" class="movement-filters" [class.expanded]="filtersExpanded"><div class="field"><label for="movement-type">Tipo</label><select id="movement-type" formControlName="type"><option value="">Todos</option><option value="COMPRA">Compra</option><option value="VENDA">Venda</option></select></div><div class="field"><label for="movement-ticker">Ticker</label><input id="movement-ticker" formControlName="ticker"></div><div class="field"><label for="movement-broker">Corretora</label><select id="movement-broker" formControlName="brokerId"><option value="">Todas</option>@for (broker of brokers; track broker.id) { <option [ngValue]="broker.id">{{ broker.razaoSocial || broker.nomeFantasia || broker.cnpj }}</option> }</select></div><div class="field"><label for="movement-from">Desde</label><input id="movement-from" type="date" formControlName="from"></div><div class="field"><label for="movement-to">Até</label><input id="movement-to" type="date" formControlName="to"></div><button class="button-primary" type="submit">Aplicar</button><button class="button-quiet" type="button" (click)="clearFilters()">Limpar</button></form>
-    </div>
-    <app-async-region [state]="movementsFacade.state()" label="histórico de movimentações" emptyTitle="Nenhuma movimentação encontrada" emptyMessage="Não existem registros confirmados para estes filtros." (retry)="loadMovements()">
-      @if (movementPage; as page) { @if (page.items.length) { <app-responsive-data-list label="Movimentações"><table><thead><tr><th scope="col">Operação</th><th scope="col">Ativo</th><th scope="col">Corretora</th><th scope="col">Quantidade</th><th scope="col">Preço nativo</th><th scope="col">Data</th><th scope="col">Origem histórica</th></tr></thead><tbody>@for (movement of page.items; track movement.id) { <tr><th scope="row"><app-status-badge [label]="movement.type === 'COMPRA' ? 'Compra simulada' : 'Venda simulada'" tone="neutral" [symbol]="movement.type === 'COMPRA' ? '↓' : '↑'" /></th><td><strong>{{ movement.ticker }}</strong><small>{{ movement.market }}</small></td><td>{{ movement.brokerName }}</td><td class="numeric">{{ movement.quantity }}</td><td class="numeric"><app-currency-value [metric]="movement.unitPrice" /></td><td><app-date-time-value [value]="movement.recordedAt" /></td><td>{{ movement.historicalQuoteProvenance.provider || 'Origem não informada' }}</td></tr> }</tbody></table><div mobile-cards>@for (movement of page.items; track movement.id) { <article class="mobile-data-card movement-card"><header><span class="movement-symbol" [attr.data-type]="movement.type" aria-hidden="true">{{ movement.type === 'COMPRA' ? '↓' : '↑' }}</span><div><strong>{{ movement.type === 'COMPRA' ? 'Compra de ' : 'Venda de ' }}{{ movement.ticker }}</strong><small>{{ movement.quantity }} × <app-currency-value [metric]="movement.unitPrice" /> · <app-date-time-value [value]="movement.recordedAt" /></small><span>{{ movement.brokerName }}</span></div></header><details><summary>Detalhes do registro</summary><dl><div><dt>Mercado</dt><dd>{{ movement.market }}</dd></div><div><dt>Moeda</dt><dd>{{ movement.unitPrice.currency }}</dd></div><div><dt>Origem histórica</dt><dd>{{ movement.historicalQuoteProvenance.provider || 'Origem não informada' }}</dd></div><div><dt>Referência</dt><dd><app-date-time-value [value]="movement.historicalQuoteProvenance.referenceAt" /></dd></div></dl></details></article> }</div></app-responsive-data-list> } <app-pagination [page]="page.page" [totalPages]="page.totalPages" label="Páginas de movimentações" (pageChange)="changePage($event)" /> }
-    </app-async-region>
-  </section>
-</div>
+@if (modalOpen) {
+  <div class="modal-overlay" (mousedown)="closeModal()">
+    <section class="operation-modal" role="dialog" aria-modal="true" [attr.aria-label]="editing ? 'Editar operação' : 'Adicionar operação'" (mousedown)="$event.stopPropagation()" (keydown)="onModalKeydown($event)">
+      <header><h2>{{editing ? 'Editar operação' : 'Adicionar operação'}}</h2><button class="icon-button close" aria-label="Fechar" (click)="closeModal()">×</button></header>
+      <p class="modal-error" role="alert" aria-live="assertive">{{modalError}}</p>
+      @if (!reviewing) {
+        <form [formGroup]="form" (ngSubmit)="review()">
+          <fieldset class="segmented"><label><input type="radio" formControlName="type" value="COMPRA"><span>Compra</span></label><label><input type="radio" formControlName="type" value="VENDA"><span>Venda</span></label></fieldset>
+          <div class="modal-fields">
+            <label class="field-asset">Ativo<select class="form-control" autofocus formControlName="assetId"><option value="">Selecione</option>@for (asset of assets; track asset.id) {<option [ngValue]="asset.id">{{asset.ticker}}</option>}</select></label>
+            <label class="field-broker">Corretora<select class="form-control" formControlName="brokerId"><option value="">Selecione</option>@for (broker of brokers; track broker.id) {<option [ngValue]="broker.id">{{broker.razaoSocial}}</option>}</select></label>
+            <label class="field-date">Data<input class="form-control" type="datetime-local" formControlName="dateTime"></label>
+            <label class="field-quantity">Quantidade<input class="form-control" type="number" formControlName="quantity"></label>
+            <label class="field-price">Preço negociado<span class="price-control"><span>{{selectedAsset?.moeda === 'USD' ? 'US$' : 'R$'}}</span><input class="form-control" formControlName="unitPrice" (input)="markPriceDirty()" (keydown)="blockDecimalNotation($event)"></span></label>
+            <small class="quote-feedback">{{fieldValidation('unitPrice') || quoteInfo || 'Selecione um ativo para sugerir o preço.'}}</small>
+          </div>
+          <details class="cost-disclosure" [open]="costsExpanded || hasOptionalData"><summary>Custos e observação</summary><div><label>Corretagem<input class="form-control" formControlName="brokerage"></label><label>Taxas<input class="form-control" formControlName="fees"></label><label>Impostos<input class="form-control" formControlName="taxes"></label><label>Outros custos<input class="form-control" formControlName="otherCosts"></label><label class="full">Observação<input class="form-control" formControlName="note"></label></div></details>
+          <footer><button type="button" class="button-quiet" (click)="closeModal()">Cancelar</button><button class="button-primary">Revisar</button></footer>
+        </form>
+      } @else {
+        <div class="review">
+          <header class="review-heading"><span class="operation-badge" [attr.data-type]="form.controls.type.value">{{form.controls.type.value === 'COMPRA' ? 'Compra' : 'Venda'}}</span><strong>{{selectedAsset?.ticker}}</strong><span>{{selectedBroker?.razaoSocial}}</span><time [attr.datetime]="form.controls.dateTime.value">{{operationDateTime(form.controls.dateTime.value)}}</time></header>
+          <section><h3>Dados da operação</h3><dl class="review-grid"><div><dt>Quantidade</dt><dd>{{form.controls.quantity.value}}</dd></div><div><dt>Preço negociado</dt><dd><app-currency-value [metric]="money(form.controls.unitPrice.value, preview?.moeda)"/></dd></div><div><dt>Valor bruto</dt><dd><app-currency-value [metric]="money(preview?.valorBruto, preview?.moeda)"/></dd></div><div><dt>Custos da operação</dt><dd><app-currency-value [metric]="money(preview?.custos, preview?.moeda)"/></dd></div><div><dt>Total</dt><dd><app-currency-value [metric]="money(preview?.valorTotal, preview?.moeda)"/></dd></div></dl></section>
+          <section><h3>Impacto na posição</h3><div class="impact-grid"><div><h4>Antes</h4><dl><div><dt>Quantidade anterior</dt><dd>{{preview?.quantidadeAnterior}}</dd></div><div><dt>Preço médio anterior</dt><dd><app-currency-value [metric]="money(preview?.precoMedioAnterior, preview?.moeda)"/></dd></div><div><dt>Custo anterior</dt><dd><app-currency-value [metric]="money(preview?.custoAnterior, preview?.moeda)"/></dd></div></dl></div><div><h4>Depois</h4><dl><div><dt>Quantidade projetada</dt><dd>{{preview?.quantidadeProjetada}}</dd></div><div><dt>Preço médio projetado</dt><dd><app-currency-value [metric]="money(preview?.precoMedioProjetado, preview?.moeda)"/></dd></div><div><dt>Custo projetado</dt><dd><app-currency-value [metric]="money(preview?.custoProjetado, preview?.moeda)"/></dd></div></dl></div></div></section>
+          @if (form.controls.type.value === 'VENDA') {<section class="realized-result"><h3>Resultado realizado nesta venda</h3><p><app-currency-value [metric]="money(preview?.resultadoRealizadoProjetado, preview?.moeda)"/> · {{(preview?.resultadoRealizadoProjetado ?? 0) >= 0 ? 'Ganho' : 'Perda'}}</p></section>}
+          <footer><button class="button-quiet" (click)="cancelReview()">Voltar e editar</button><button class="button-primary" (click)="confirm()">Confirmar registro</button></footer>
+        </div>
+      }
+    </section>
+  </div>
+}
+
+@if (deleteConfirmationId) {
+  <div class="modal-overlay"><section class="delete-dialog" role="alertdialog" aria-modal="true"><h2>Excluir esta operação?</h2><p>O preço médio será recalculado.</p><footer><button class="button-quiet" (click)="cancelDelete(deleteConfirmationId)">Cancelar</button><button class="button-danger" (click)="confirmDelete(deleteConfirmationId)">Excluir operação</button></footer></section></div>
+}

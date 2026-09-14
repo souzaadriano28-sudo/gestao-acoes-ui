@@ -76,6 +76,16 @@ describe('shared data components', () => {
     expect(fixture.nativeElement.textContent).toContain('Tentar leitura novamente');
   });
 
+  it('mantém o conteúdo anterior durante refresh sem inserir skeleton', async () => {
+    await TestBed.configureTestingModule({ imports: [AsyncRegionComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(AsyncRegionComponent);
+    fixture.componentRef.setInput('label', 'posições');
+    fixture.componentRef.setInput('state', asyncState.loading(['confirmado']));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role=status]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[aria-busy=true]')).toBeTruthy();
+  });
+
   it('distingue cartão positivo por sinal/texto e mantém anúncio compartilhado', async () => {
     await TestBed.configureTestingModule({ imports: [SummaryCardComponent, ToastRegionComponent] }).compileComponents();
     const card = TestBed.createComponent(SummaryCardComponent);

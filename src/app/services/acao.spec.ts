@@ -29,4 +29,12 @@ describe('AcaoService', () => {
     expect(request.request.body).toEqual({ ticker: 'AAPL', mercado: 'AMERICANO' });
     request.flush({ ticker: 'AAPL', mercado: 'AMERICANO' }, { status: 201, statusText: 'Created' });
   });
+
+  it('renova a cotação pelo endpoint autenticado do ativo', () => {
+    service.atualizarCotacao(17).subscribe();
+    const request = http.expectOne('/api/acoes/17/atualizar-cotacao');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({});
+    request.flush({ id: 17, ticker: 'PETR4', mercado: 'BRASIL' });
+  });
 });

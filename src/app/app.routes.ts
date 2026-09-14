@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { LoginPageComponent } from './auth/login-page/login-page';
+import { RegisterPageComponent } from './auth/register-page/register-page';
 import { authGuard } from './auth/auth.guard';
 import { ProtectedLayoutComponent } from './auth/protected-layout/protected-layout';
 import { AcaoComponent } from './components/acao/acao';
@@ -11,6 +12,7 @@ import { NotFoundComponent } from './shared/pages/not-found/not-found';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent, title: 'Acesso | Atlas Carteira' },
+  { path: 'register', component: RegisterPageComponent, title: 'Criar conta | Atlas Carteira' },
   {
     path: '', component: ProtectedLayoutComponent, canActivate: [authGuard], canActivateChild: [authGuard],
     children: [
